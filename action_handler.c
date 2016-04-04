@@ -304,13 +304,13 @@ int select_fetch_column_handler(void *ctx, oci_resultset_t *rs, int rownum) {
     void **params = (void **)ctx;
     int rowcount = *((int *)params[0]);
     json_object *rows = (json_object *)params[1];
-	const char *value;
-	
+    const char *value;
+
     if(rownum > rowcount) {
         return 0; //限制
     }
 
-	value = oci_get_string(rs, 1);
+    value = oci_get_string(rs, 1);
     value = (value == NULL ? "" : value);
 
     json_object_array_add(rows, json_object_new_string(value));
@@ -1823,43 +1823,43 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-	const char *sign_key = json_util_object_get_string(request, params[0]);
+    const char *sign_key = json_util_object_get_string(request, params[0]);
 
-	if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_key)) {
-		snprintf(err_msg, err_size, "签名验证失败");
-		ret = -1;
-		dcs_log(0, 0, "at %s(%s:%d) 签名要素不全",__FUNCTION__,__FILE__,__LINE__);
-	} else {
-		char buf[33];
-		int buf_len = 0;
-		bzero(buf, sizeof(buf));
-	    //md5(buf, ctx->body, sign_key, 0);
+    if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_key)) {
+        snprintf(err_msg, err_size, "签名验证失败");
+        ret = -1;
+        dcs_log(0, 0, "at %s(%s:%d) 签名要素不全",__FUNCTION__,__FILE__,__LINE__);
+    } else {
+        char buf[33];
+        int buf_len = 0;
+        bzero(buf, sizeof(buf));
+        //md5(buf, ctx->body, sign_key, 0);
 
 
-		const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
-		const char *tmk_key1 = json_util_object_get_string(request, params[2]);
-		const char *sign_key = params[3];
+        const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
+        const char *tmk_key1 = json_util_object_get_string(request, params[2]);
+        const char *sign_key = params[3];
 
-		char return_code[4];
+        char return_code[4];
 
-		bzero(return_code, sizeof(return_code));
+        bzero(return_code, sizeof(return_code));
 
-		DES_TO_MD5(return_code, sign_sek_indx, sign_key, ctx->body_len, ctx->body, &buf_len, buf);
+        DES_TO_MD5(return_code, sign_sek_indx, sign_key, ctx->body_len, ctx->body, &buf_len, buf);
 
-		/*
-		cmd5_ctx_t md5;
-		cmd5_init(&md5);
-		cmd5_update(&md5, (unsigned char *)ctx->body, ctx->body_len);
-		cmd5_update(&md5, (unsigned char *)sign_key, strlen(sign_key));
-		cmd5_hexdigest(&md5, (unsigned char *)buf);
-		*/
+        /*
+        cmd5_ctx_t md5;
+        cmd5_init(&md5);
+        cmd5_update(&md5, (unsigned char *)ctx->body, ctx->body_len);
+        cmd5_update(&md5, (unsigned char *)sign_key, strlen(sign_key));
+        cmd5_hexdigest(&md5, (unsigned char *)buf);
+        */
 
-		if(strcmp(ctx->sign, buf) != 0) {
-			snprintf(err_msg, err_size, "签名验证失败");
-			ret = -1;
-			dcs_log(0, 0, "at %s(%s:%d) [%s] [%s]",__FUNCTION__,__FILE__,__LINE__,ctx->sign, buf);
-		}
-	}
+        if(strcmp(ctx->sign, buf) != 0) {
+            snprintf(err_msg, err_size, "签名验证失败");
+            ret = -1;
+            dcs_log(0, 0, "at %s(%s:%d) [%s] [%s]",__FUNCTION__,__FILE__,__LINE__,ctx->sign, buf);
+        }
+    }
 
     return ret;
 }
@@ -1873,32 +1873,41 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-	if(params_len < 4) {
+    if(params_len < 5) {
         snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-	const char *sek_indx = json_util_object_get_string(request, params[0]);
-	const char *tek_indx = json_util_object_get_string(request, params[1]);
-	const char *tmk_key1 = params[2];
-	const char *tmk_key2 = params[3];
+    const char *sek_indx = json_util_object_get_string(request, params[0]);
+    const char *tek_indx = json_util_object_get_string(request, params[1]);
+    const char *tmk_key1 = params[2];
+    const char *tmk_key2 = params[3];
+    const char *sql_id = params[4];
 
-	char return_code[4];
-	char sek_tmk_data[100];
-	char tek_tmk_data[100];
-	char chk_tmk_data[100];
+    char return_code[4];
+    char sek_tmk_data[100];
+    char tek_tmk_data[100];
+    char chk_tmk_data[100];
 
-	bzero(return_code, sizeof(return_code));
-	bzero(sek_tmk_data, sizeof(sek_tmk_data));
-	bzero(tek_tmk_data, sizeof(tek_tmk_data));
-	bzero(chk_tmk_data, sizeof(chk_tmk_data));
-	
-	GET_TMK(return_code, sek_indx, tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
+    bzero(return_code, sizeof(return_code));
+    bzero(sek_tmk_data, sizeof(sek_tmk_data));
+    bzero(tek_tmk_data, sizeof(tek_tmk_data));
+    bzero(chk_tmk_data, sizeof(chk_tmk_data));
 
-	json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_data));
-	json_object_object_add(request, tmk_key2, json_object_new_string(tek_tmk_data));
-		
+    GET_TMK(return_code, sek_indx, tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
+
+    fun_config_t temp_config;
+    memcpy(&temp_config, config, sizeof(temp_config));
+    cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
+
+    if(module_update(config, ctx, request, response, err_msg, err_size) < 0) {
+        ret = -1;
+    }
+
+    json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_data));
+    json_object_object_add(request, tmk_key2, json_object_new_string(tek_tmk_data));
+
     return ret;
 }
 
@@ -1911,37 +1920,46 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-	if(params_len < 4) {
+    if(params_len < 5) {
         snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-	const char *sek_indx = json_util_object_get_string(request, params[0]);
-	const char *sign_sek_indx = json_util_object_get_string(request, params[1]);
-	const char *tmk_key1 = json_util_object_get_string(request, params[2]);
-	const char *sign_key = params[3];
+    const char *sek_indx = json_util_object_get_string(request, params[0]);
+    const char *sign_sek_indx = json_util_object_get_string(request, params[1]);
+    const char *tmk_key1 = json_util_object_get_string(request, params[2]);
+    const char *sign_key = params[3];
+    const char *sql_id = params[4];
 
-	char return_code[4];
-	char sek_pikmak_data[100];
-	char tmk_pikmak_data[100];
-	char chk_pikmak_data[100];
+    char return_code[4];
+    char sek_pikmak_data[100];
+    char tmk_pikmak_data[100];
+    char chk_pikmak_data[100];
 
-	bzero(return_code, sizeof(return_code));
-	bzero(sek_pikmak_data, sizeof(sek_pikmak_data));
-	bzero(tmk_pikmak_data, sizeof(tmk_pikmak_data));
-	bzero(chk_pikmak_data, sizeof(chk_pikmak_data));
+    bzero(return_code, sizeof(return_code));
+    bzero(sek_pikmak_data, sizeof(sek_pikmak_data));
+    bzero(tmk_pikmak_data, sizeof(tmk_pikmak_data));
+    bzero(chk_pikmak_data, sizeof(chk_pikmak_data));
 
-	//GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
-	GET_WORK_KEY(return_code, sek_indx, sign_sek_indx, tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
+    //GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
+    GET_WORK_KEY(return_code, sek_indx, sign_sek_indx, tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
 
-	json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_data));
-		
+    fun_config_t temp_config;
+    memcpy(&temp_config, config, sizeof(temp_config));
+    cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
+
+    if(module_update(config, ctx, request, response, err_msg, err_size) < 0) {
+        ret = -1;
+    }
+
+    json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_data));
+
     return ret;
 }
 
 
-int module_encrypt_master_key(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
     int ret = 0, i;
     char param_list[512+1];
     char *params[8];
@@ -1950,30 +1968,168 @@ int module_encrypt_master_key(fun_config_t *config, process_ctx_t *ctx, json_obj
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-	if(params_len < 4) {
+    if(params_len < 4) {
         snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-	const char *sek_indx = json_util_object_get_string(request, params[0]);
-	const char *term_key1 = json_util_object_get_string(request, params[1]);
-	const char *rsa_key = json_util_object_get_string(request, params[2]);
-	const char *encrypt_key = json_util_object_get_string(request, params[2]);
+    const char *sek_indx = json_util_object_get_string(request, params[0]);
+    const char *term_key1 = json_util_object_get_string(request, params[1]);
+    const char *rsa_key = json_util_object_get_string(request, params[2]);
+    const char *encrypt_key = json_util_object_get_string(request, params[3]);
 
-	char return_code[4];
-	char encrypt_data[100];
-	int encrypt_data_len = 0;
+    char return_code[4];
+    char encrypt_data[100];
+    int encrypt_data_len = 0;
 
-	bzero(return_code, sizeof(return_code));
-	bzero(encrypt_data, sizeof(encrypt_data));
+    bzero(return_code, sizeof(return_code));
+    bzero(encrypt_data, sizeof(encrypt_data));
 
-	DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key), rsa_key, &encrypt_data_len, encrypt_data);
-	
-	json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_data));
-		
+    DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key), rsa_key, &encrypt_data_len, encrypt_data);
+
+    json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_data));
+
     return ret;
 }
+
+int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+    int ret = 0, i;
+    char param_list[512+1];
+    char *params[8];
+    int params_len;
+
+    cstr_copy(param_list, config->param_list, sizeof(param_list));
+    params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
+
+    if(params_len < 4) {
+        snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+    const char *file_path = json_util_object_get_string(request, params[0]);
+    const char *mchnt_cd = json_util_object_get_string(request, params[1]);
+    const char *term_id = json_util_object_get_string(request, params[2]);
+    const char *psam_no = json_util_object_get_string(request, params[3]);
+    const char *new_file_path = params[4];
+
+
+    char source_path[CFILE_MAX_PATH];
+    char dest_path[CFILE_MAX_PATH];
+    char today[20];
+    unsigned char uuid_buf[33];
+	char *suffix;
+
+	cdate_now_date(today, sizeof(today));
+    gen_uuid(uuid_buf);
+
+    snprintf(source_path, sizeof(source_path), "%s%s", document_root, file_path);
+    suffix = cfile_get_suffix(cfile_get_filename(source_path));
+	suffix = (suffix == NULL ? "" : suffix);
+    snprintf(dest_path, sizeof(dest_path), "%s/%s/%s/%s%s", document_root, "temp", today, uuid_buf, suffix);
+
+    if(cfile_copy(source_path, dest_path) != 0) {
+        //error
+        snprintf(err_msg, err_size, "复制参数文件失败");
+        dcs_log(0, 0, "at %s(%s:%d) %s[%s][%s]",__FUNCTION__,__FILE__,__LINE__,err_msg,source_path,dest_path);
+        ret = -1;
+
+    } else {
+        FILE *fp = fopen(dest_path, "a");
+
+        if(fp == NULL) {
+            snprintf(err_msg, err_size, "打开文件失败");
+            dcs_log(0, 0, "at %s(%s:%d) %s[%s]",__FUNCTION__,__FILE__,__LINE__,err_msg,dest_path);
+            ret = -1;
+        } else {
+
+            if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                fprintf(fp, "MCHNT_CD=%s\n", mchnt_cd);
+                fprintf(fp, "TERM_ID=%s\n", term_id);
+            }
+
+            if(!cstr_empty(psam_no)) {
+                fprintf(fp, "PSAM_NO=%s\n", psam_no);
+            }
+
+            fclose(fp);
+
+            json_object_object_add(request, new_file_path, json_object_new_string(dest_path+strlen(document_root)));
+        }
+    }
+
+    return ret;
+}
+
+int module_batch_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+    int ret = 0;
+    int i, len;
+
+    if(json_object_get_type(request) != json_type_array) {
+        ret = -1;
+        snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
+        dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__,err_size,err_msg);
+    } else {
+        len = json_object_array_length(request);
+
+        for(i = 0; i < len; i ++) {
+            json_object *row = json_object_array_get_idx(request, i);
+
+            if(module_generate_para_file(config, ctx, row, response, err_msg, err_size) < 0) {
+                ret = -1;
+                break;
+            }
+        }
+    }
+
+    return ret;
+}
+
+int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+    int ret = 0, i;
+    char param_list[512+1];
+    char *params[8];
+    int params_len;
+	int len;
+
+    cstr_copy(param_list, config->param_list, sizeof(param_list));
+    params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
+
+    if(params_len < 2) {
+        snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+    const char *key = params[0];
+    const char *column =  params[1];
+    const char *new_key = params[2];
+	json_object *array = json_util_object_get(request, key);
+	json_object *new_array = NULL;
+
+	
+    if(json_object_get_type(array) != json_type_array) {
+        ret = -1;
+        snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
+        dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__,err_size,err_msg);
+    } else {
+    	new_array = json_object_new_array();
+		
+        len = json_object_array_length(array);
+        for(i = 0; i < len; i ++) {
+            json_object *row = json_object_array_get_idx(request, i);
+		  	json_object_array_add(new_array, json_util_object_get(row, column));
+        }
+
+		//key==new_key
+		json_object_object_add(request, new_key, new_array);
+    }
+
+    return ret;
+}
+
+
 
 
 typedef int (*module_fn)(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size);
@@ -2005,7 +2161,12 @@ struct execute_module my_check_module[] = {
     {"export_xls", &module_export_xls},
     {"change_password", &module_change_password},
     {"add", &module_add},
-	{"check_sign", &module_check_sign},
+    {"check_sign", &module_check_sign},
+	{"generate_tmk", &module_generate_tmk},
+	{"generate_sign_key", &module_generate_sign_key},
+	{"generate_para_file", &module_generate_para_file},
+	{"batch_generate_para_file", &module_batch_generate_para_file},
+	{"extract_column_array", &module_extract_column_array},
     {NULL,NULL}
 };
 
@@ -2290,7 +2451,7 @@ int check_function_acl(process_ctx_t *ctx) {
     session_attr_t *attr = (session_attr_t *)ctx->session->remark;
     carray_t bind;
 
-	return 0;
+    return 0;
     //个人信息相关权限
     if(strncmp(ctx->action, "/action/user/", 13) == 0) {
         return 0;
@@ -2399,7 +2560,7 @@ int captcha_handler(process_ctx_t *ctx, connection *con, int *flag, char *outbuf
 
 
 int check_session(process_ctx_t *ctx) {
-	return 0;
+    return 0;
     //会话检查
     if(ctx->session == NULL) {
         dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__, "无效会话");

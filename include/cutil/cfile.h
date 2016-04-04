@@ -28,7 +28,9 @@ extern "C"{
 extern int cfile_mkdirs(const char *dir, mode_t mode);
 extern char *cfile_get_filename(char *path);
 extern char *cfile_get_suffix(char *filename);
-extern int cfile_create_file(char *path);
+extern int cfile_create(char *path);
+extern int cfile_copy(char *source_path, char *dest_path);
+
 
 #ifdef __cplusplus
 }
