@@ -59,7 +59,7 @@ extern net_str_t *net_get_http_cookie(http_pairs_t *cookies, const char *name);
 extern net_str_t *net_get_http_query_string(http_pairs_t *query, const char *name);
 extern const char *net_parse_http_cookies(const char *s, const char *end, http_pairs_t *cookies);
 extern const char *net_parse_http_query_string(const char *s, const char *end, http_pairs_t *query);
-extern int net_send_http_file2(struct stat *st, char *range_header, char *custom_headers, char *outbuf, int outsize);
+extern int net_send_http_file2(struct stat *st, const char *range_header, const char *custom_headers, char *outbuf, int outsize, int64_t *offset, int64_t *len);
 extern const char *net_skip(const char *s, const char *end, const char *delims,
                               net_str_t *v);
 extern int net_vcmp(const net_str_t *str1, const char *str2);

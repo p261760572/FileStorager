@@ -34,7 +34,7 @@
 #include "data_acl.h"
 #include "action_handler.h"
 
-extern void send_file2(int fd, int *flag, const char *path, long offset);
+extern void send_file2(int fd, int *flag, const char *path, long offset, long file_size);
 
 #define SELECT_TOTAL "select count(1) total"
 //#define SELECT_PAGE_START "select * from (select rownum rn, a.* from ("
@@ -2547,7 +2547,7 @@ int captcha_handler(process_ctx_t *ctx, connection *con, int *flag, char *outbuf
         } else {
             write(fd, gif, gifsize);
             close(fd);
-            send_file2(con->fd, flag, filepath, 0);
+            send_file2(con->fd, flag, filepath, 0, -1);
         }
 
         strcpy(ctx->session->remark+2, (char *)l);

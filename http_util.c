@@ -27,7 +27,7 @@ static int parse_range_header(const net_str_t *header, int64_t *a,
 }
 
 
-int net_send_http_file2(struct stat *st, char *range_header, char *custom_headers, char *outbuf, int outsize) {
+int net_send_http_file2(struct stat *st, const char *range_header, const char *custom_headers, char *outbuf, int outsize, int64_t *offset, int64_t *len) {
     char range[50];
     int64_t r1 = 0, r2 = 0, cl = st->st_size;
     net_str_t range_hdr;
@@ -66,6 +66,9 @@ int net_send_http_file2(struct stat *st, char *range_header, char *custom_header
             //fseeko(dp->fp, r1, SEEK_SET);
         }
     }
+
+	*offset = r1;
+	*len = cl;
 
     return snprintf(outbuf, outsize,
                "HTTP/1.1 %d %s\r\n"

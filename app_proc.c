@@ -651,11 +651,12 @@ static void uri_to_path(struct mg_request_info *hm, char *buf, size_t buf_len) {
 }
 
 
-void send_file2(int fd, int *flag, const char *path, long offset) {
+void send_file2(int fd, int *flag, const char *path, long offset, long file_size) {
     JOB job;
 
     memset(&job, 0, sizeof(job));
     job.off_set = offset;
+	job.file_size = file_size;
     job.sock_id = fd;
     job.read_or_write = 1; // 0Ð´ 1¶Á
 
@@ -704,6 +705,11 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
         }
     }
 
+	int64_t offset = 0, len = 0; 
+	int n = net_send_http_file2(&st, get_header(hm, "Range"), custom_headers, outbuf, outsize, &offset, &len);
+	
+
+	/*
     int status_code = 200;
     char *msg = "OK";
     int n = snprintf(outbuf, outsize,
@@ -712,8 +718,11 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
                      "Content-Length: %ld\r\n"
                      "%s"
                      "\r\n", status_code, msg, st.st_size, custom_headers);
+	*/    
 
-    send_file2(con->fd, flag, filepath, 0);
+	if(len > 0) {
+    	send_file2(con->fd, flag, filepath, offset, len);
+	}
 
     return n;
 }
@@ -769,7 +778,7 @@ int request_handler(int fd, int *flag, char *outbuf, int outsize, process_ctx_t 
     json_object_to_file(filepath, response);
     json_object_put(response); //free
 
-    send_file2(fd, flag, filepath, 0);
+    send_file2(fd, flag, filepath, 0, -1);
     return headers_len;
 }
 
