@@ -68,6 +68,17 @@ struct fun_info_s {
 typedef struct fun_info_s fun_info_t;
 
 
+typedef int (*module_fn)(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size);
+
+
+struct execute_module {
+    char *module_name;
+    module_fn fn;
+};
+
+int execute_config(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size);
+
+
 extern char *document_root;
 
 fun_info_t g_fun_info[MAX_FUN_INFO_SIZE];
@@ -1901,7 +1912,7 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     memcpy(&temp_config, config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
 
-    if(module_update(config, ctx, request, response, err_msg, err_size) < 0) {
+    if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
         ret = -1;
     }
 
@@ -2130,15 +2141,52 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
 }
 
 
+int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+	int ret = 0;
+	int i, len;
+    char param_list[512+1];
+    char *params[3]; //注意大小
+    int params_len;
+
+    cstr_copy(param_list, config->param_list, sizeof(param_list));
+    params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
+
+    if(params_len < 3) {
+        snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
 
 
-typedef int (*module_fn)(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size);
+	char *module_name = params[0];
+	char *input_key = params[1];
+	char *sub_params = params[2]; 
+
+    if(json_object_get_type(request) != json_type_array) {
+        ret = -1;
+        snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
+        dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__,err_size,err_msg);
+    } else {
+        len = json_object_array_length(request);
+
+        for(i = 0; i < len; i ++) {
+            json_object *row = json_object_array_get_idx(request, i);
+
+			fun_config_t temp_config;
+		    memcpy(&temp_config, config, sizeof(temp_config));
+			cstr_copy(temp_config.module_name, module_name, sizeof(temp_config.module_name));
+			cstr_copy(temp_config.input, input_key, sizeof(temp_config.input));
+		    cstr_copy(temp_config.param_list, sub_params, sizeof(temp_config.param_list));
+
+		    ret = execute_config(&temp_config, ctx, row, response, err_msg, err_size);
+        }
+    }
+
+    return ret;
+}
 
 
-struct execute_module {
-    char *module_name;
-    module_fn fn;
-};
+
 
 struct execute_module my_check_module[] = {
     {"select_page", &module_select_page},
@@ -2164,9 +2212,11 @@ struct execute_module my_check_module[] = {
     {"check_sign", &module_check_sign},
 	{"generate_tmk", &module_generate_tmk},
 	{"generate_sign_key", &module_generate_sign_key},
+	{"rsa_pk_encrypt", &module_rsa_pk_encrypt},
 	{"generate_para_file", &module_generate_para_file},
 	{"batch_generate_para_file", &module_batch_generate_para_file},
 	{"extract_column_array", &module_extract_column_array},
+	{"batch_execute", &module_batch_execute},
     {NULL,NULL}
 };
 
