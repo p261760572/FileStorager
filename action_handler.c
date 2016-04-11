@@ -770,24 +770,15 @@ int module_select_list(fun_config_t *config, process_ctx_t *ctx, json_object *re
     }
 
     if(strcmp(key, "request") == 0) {
-        rows = json_util_object_get(request, "rows");
-        if(rows == NULL) {
-            rows = json_object_new_array();
-            json_object_object_add(request, "rows", rows);
-        }
+        rows = json_object_new_array();
+        json_object_object_add(request, "rows", rows);
     } else if(strncmp(key, "request.", 8) == 0) {
         temp_key = key + 8;
-        rows = json_util_object_get(request, temp_key);
-        if(rows == NULL) {
-            rows = json_object_new_array();
-            json_object_object_add(request, temp_key, rows);
-        }
+        rows = json_object_new_array();
+        json_object_object_add(request, temp_key, rows);
     } else {
-        rows = json_util_object_get(response, key);
-        if(rows == NULL) {
-            rows = json_object_new_array();
-            json_object_object_add(response, key, rows);
-        }
+        rows = json_object_new_array();
+        json_object_object_add(response, key, rows);
     }
 
     cbuf_init(&sqlbuf, DEFAULT_SQL_SIZE, MAX_SQL_SIZE);
@@ -2077,6 +2068,8 @@ int module_batch_generate_para_file(fun_config_t *config, process_ctx_t *ctx, js
     int ret = 0;
     int i, len;
 
+	dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
+
     if(json_object_get_type(request) != json_type_array) {
         ret = -1;
         snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
@@ -2161,6 +2154,8 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
 	char *module_name = params[0];
 	char *input_key = params[1];
 	char *sub_params = params[2]; 
+
+	dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
 
     if(json_object_get_type(request) != json_type_array) {
         ret = -1;
