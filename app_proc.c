@@ -1061,6 +1061,8 @@ int do_post(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
             n = request_handler(con->fd, flag, outbuf, outsize,ctx, request, response);
             json_object_put(request); //free
             json_object_put(response); //free
+
+			dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, n, outbuf);
         }
     } else if(strstr(content_type, "multipart/form-data") != NULL) {
         ctx->user_data1 = json_object_new_object();
@@ -1112,6 +1114,8 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
         //con->data_len 收到的数据大小(<=16k)
         //dcs_debug(0, 0, "at %s(%s:%d) head_len=%d msg_len=%d data_len=%d", __FUNCTION__, __FILE__, __LINE__,
         //          con->head_len, con->msg_len, con->data_len);
+
+		dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, con->data_len, con->buf);
 
         struct mg_request_info hm;
         int headers_len;
