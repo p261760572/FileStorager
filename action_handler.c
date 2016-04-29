@@ -1442,8 +1442,7 @@ int module_copy(fun_config_t *config, process_ctx_t *ctx, json_object *request, 
         snprintf(err_msg, err_size, "%s不是对象,不能进行操作", to);
         dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__, err_size, err_msg);
     } else {
-        json_object_object_add(to_json, new_key, key_obj);
-        json_object_get(key_obj);
+        json_object_object_add(to_json, new_key, json_object_get(key_obj));
     }
 
     return ret;
@@ -2122,12 +2121,14 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
 		
         len = json_object_array_length(array);
         for(i = 0; i < len; i ++) {
-            json_object *row = json_object_array_get_idx(request, i);
-		  	json_object_array_add(new_array, json_util_object_get(row, column));
+            json_object *row = json_object_array_get_idx(array, i);
+		  	json_object_array_add(new_array, json_object_get(json_util_object_get(row, column)));
+		  	//json_object_array_add(new_array, json_object_new_string(""));
         }
 
 		//key==new_key
-		json_object_object_add(request, new_key, new_array);
+		//json_object_object_add(request, new_key, new_array);
+		json_object_put(new_array);
     }
 
     return ret;

@@ -766,7 +766,7 @@ int request_handler(int fd, int *flag, char *outbuf, int outsize, process_ctx_t 
 
     if(headers_len+body_len <= outsize) {
         memcpy(outbuf + headers_len, body, body_len);
-        json_object_put(response); //free
+        //json_object_put(response); //free
         return headers_len + body_len;
     }
 
@@ -776,7 +776,7 @@ int request_handler(int fd, int *flag, char *outbuf, int outsize, process_ctx_t 
     snprintf(filepath, sizeof(filepath), "/tmp/%ld-%d.out", (long)getpid(), fd);
 
     json_object_to_file(filepath, response);
-    json_object_put(response); //free
+    //json_object_put(response); //free
 
     send_file2(fd, flag, filepath, 0, -1);
     return headers_len;
