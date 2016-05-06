@@ -2127,8 +2127,8 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
         }
 
 		//key==new_key
-		//json_object_object_add(request, new_key, new_array);
-		json_object_put(new_array);
+		json_object_object_add(request, new_key, new_array);
+		//json_object_put(new_array);
     }
 
     return ret;
