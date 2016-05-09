@@ -738,6 +738,32 @@ int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize,
     return send_file(con, shm_ptr, flag, outbuf, outsize, hm);
 }
 
+int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {
+	char filepath[MAX_PATH_SIZE];
+    struct stat st;
+
+    uri_to_path(hm, filepath, sizeof(filepath));
+    dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,filepath);
+
+    if(stat(filepath, &st)) {
+        dcs_log(0, 0, "at %s(%s:%d) 404 Not Found,%s", __FUNCTION__, __FILE__, __LINE__,filepath);
+        return send_http_error(outbuf, outsize, 404, "Not Found");
+    }
+
+    int status_code = 200;
+    char *status_message = "OK";
+
+	return snprintf(outbuf, outsize,
+               "HTTP/1.1 %d %s\r\n"
+               "Accept-Ranges: bytes\r\n"
+               "Content-Type: application/octet-stream\r\n"
+               "Content-Length: %" INT64_FMT
+               "\r\n"
+               "\r\n",
+               status_code, status_message, st.st_size);
+}
+
+
 
 int request_handler(int fd, int *flag, char *outbuf, int outsize, process_ctx_t *ctx, json_object *request, json_object *response) {
     char headers[200];
@@ -1165,6 +1191,8 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
 
         if(strcmp(hm.request_method, "GET") == 0) {
             return do_get(con, shm_ptr, flag, outbuf, outsize, &hm, &ctx);
+        } else if(strcmp(hm.request_method, "HEAD") == 0) {
+            return do_head(con, shm_ptr, flag, outbuf, outsize, &hm, &ctx);
         } else if(strcmp(hm.request_method, "POST") == 0) {
             return do_post(con, shm_ptr, flag, outbuf, outsize, &hm, &ctx);
         } else {
