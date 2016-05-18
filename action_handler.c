@@ -1871,6 +1871,11 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     char *params[8];
     int params_len;
 
+	//前提表达式检测
+    if(!fun_config_test_value(config->test, ctx, request)) {
+        return 0;
+    }
+
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
@@ -1890,24 +1895,37 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     char sek_tmk_data[100];
     char tek_tmk_data[100];
     char chk_tmk_data[100];
+	
+	char sek_tmk_hex[100];
+	char tek_tmk_hex[100];
+	char chk_tmk_hex[100];
 
     bzero(return_code, sizeof(return_code));
     bzero(sek_tmk_data, sizeof(sek_tmk_data));
     bzero(tek_tmk_data, sizeof(tek_tmk_data));
     bzero(chk_tmk_data, sizeof(chk_tmk_data));
+	bzero(sek_tmk_hex, sizeof(sek_tmk_hex));
+    bzero(tek_tmk_hex, sizeof(tek_tmk_hex));
+    bzero(chk_tmk_hex, sizeof(chk_tmk_hex));
 
     GET_TMK(return_code, sek_indx, tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
 
+	cbin_bin_to_hex((unsigned char *)sek_tmk_data, (unsigned char *)sek_tmk_hex, 16);
+	cbin_bin_to_hex((unsigned char *)tek_tmk_data, (unsigned char *)tek_tmk_hex, 16);
+	cstr_upper(sek_tmk_hex);
+	cstr_upper(tek_tmk_hex);
+
     fun_config_t temp_config;
-    memcpy(&temp_config, config, sizeof(temp_config));
+    //memcpy(&temp_config, config, sizeof(temp_config));
+	bzero(&temp_config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
+
+	json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_hex));
+    json_object_object_add(request, tmk_key2, json_object_new_string(tek_tmk_hex));
 
     if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
         ret = -1;
     }
-
-    json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_data));
-    json_object_object_add(request, tmk_key2, json_object_new_string(tek_tmk_data));
 
     return ret;
 }
@@ -1917,6 +1935,11 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     char param_list[512+1];
     char *params[8];
     int params_len;
+
+	//前提表达式检测
+    if(!fun_config_test_value(config->test, ctx, request)) {
+        return 0;
+    }
 
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
@@ -1937,24 +1960,35 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     char sek_pikmak_data[100];
     char tmk_pikmak_data[100];
     char chk_pikmak_data[100];
+	char sek_pikmak_hex[100];
+    char tmk_pikmak_hex[100];
+    char chk_pikmak_hex[100];
 
     bzero(return_code, sizeof(return_code));
     bzero(sek_pikmak_data, sizeof(sek_pikmak_data));
     bzero(tmk_pikmak_data, sizeof(tmk_pikmak_data));
     bzero(chk_pikmak_data, sizeof(chk_pikmak_data));
+	bzero(sek_pikmak_hex, sizeof(sek_pikmak_hex));
+    bzero(tmk_pikmak_hex, sizeof(tmk_pikmak_hex));
+    bzero(chk_pikmak_hex, sizeof(chk_pikmak_hex));
 
     //GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
     GET_WORK_KEY(return_code, sek_indx, sign_sek_indx, tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
+	cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
+	cstr_upper(sek_pikmak_hex);
+
+	//dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,sek_pikmak_hex);
 
     fun_config_t temp_config;
-    memcpy(&temp_config, config, sizeof(temp_config));
+    //memcpy(&temp_config, config, sizeof(temp_config));
+    bzero(&temp_config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
 
-    if(module_update(config, ctx, request, response, err_msg, err_size) < 0) {
+	json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_hex));
+
+    if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
         ret = -1;
     }
-
-    json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_data));
 
     return ret;
 }
@@ -1978,7 +2012,13 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     const char *sek_indx = json_util_object_get_string(request, params[0]);
     const char *term_key1 = json_util_object_get_string(request, params[1]);
     const char *rsa_key = json_util_object_get_string(request, params[2]);
-    const char *encrypt_key = json_util_object_get_string(request, params[3]);
+    const char *encrypt_key = params[3];
+
+	dcs_log(0, 0, "%s", term_key1);
+	dcs_log(0, 0, "%s", rsa_key);
+
+	char rsa_key_bin[512];
+	cbin_hex_to_bin((unsigned char *)rsa_key, (unsigned char *)rsa_key_bin, strlen(rsa_key));
 
     char return_code[4];
     char encrypt_data[100];
@@ -1987,7 +2027,7 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     bzero(return_code, sizeof(return_code));
     bzero(encrypt_data, sizeof(encrypt_data));
 
-    DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key), rsa_key, &encrypt_data_len, encrypt_data);
+    DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
 
     json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_data));
 
