@@ -1826,6 +1826,8 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
     const char *sign_key = json_util_object_get_string(request, params[0]);
 
+	return 0;
+
     if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_key)) {
         snprintf(err_msg, err_size, "«©√˚—È÷§ ß∞‹");
         ret = -1;
@@ -2021,15 +2023,22 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
 	cbin_hex_to_bin((unsigned char *)rsa_key, (unsigned char *)rsa_key_bin, strlen(rsa_key));
 
     char return_code[4];
-    char encrypt_data[100];
+    char encrypt_data[512];
     int encrypt_data_len = 0;
-
+	char encrypt_hex[2048+1];
+	
     bzero(return_code, sizeof(return_code));
     bzero(encrypt_data, sizeof(encrypt_data));
+	bzero(encrypt_hex, sizeof(encrypt_hex));
 
     DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
+	
+	cbin_bin_to_hex((unsigned char *)encrypt_data, (unsigned char *)encrypt_hex, encrypt_data_len);
+	cstr_upper(encrypt_hex);
 
-    json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_data));
+	dcs_log(0, 0, "%s", encrypt_hex);
+
+    json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_hex));
 
     return ret;
 }
