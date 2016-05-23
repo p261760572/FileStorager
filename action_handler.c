@@ -33,6 +33,7 @@
 #include "gen_sql.h"
 #include "data_acl.h"
 #include "action_handler.h"
+#include "secuLib_wst.h"
 
 extern void send_file2(int fd, int *flag, const char *path, long offset, long file_size);
 
@@ -1826,18 +1827,17 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
     const char *sign_key = json_util_object_get_string(request, params[0]);
 
-	return 0;
-
     if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_key)) {
         snprintf(err_msg, err_size, "签名验证失败");
         ret = -1;
         dcs_log(0, 0, "at %s(%s:%d) 签名要素不全",__FUNCTION__,__FILE__,__LINE__);
     } else {
-        char buf[33];
+        char buf[33], buf_hex[33];
         int buf_len = 0;
+		
         bzero(buf, sizeof(buf));
+		bzero(buf_hex, sizeof(buf_hex));
         //md5(buf, ctx->body, sign_key, 0);
-
 
         const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
         const char *tmk_key1 = json_util_object_get_string(request, params[2]);
@@ -1847,7 +1847,9 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
         bzero(return_code, sizeof(return_code));
 
-        DES_TO_MD5(return_code, sign_sek_indx, sign_key, ctx->body_len, ctx->body, &buf_len, buf);
+        DES_TO_MD5(return_code, (char *)sign_sek_indx,(char *)sign_key, ctx->body_len, (char *)ctx->body, &buf_len, buf);
+
+		cbin_bin_to_hex((unsigned char *)buf, (unsigned char *)buf_hex, buf_len);
 
         /*
         cmd5_ctx_t md5;
@@ -1910,7 +1912,7 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     bzero(tek_tmk_hex, sizeof(tek_tmk_hex));
     bzero(chk_tmk_hex, sizeof(chk_tmk_hex));
 
-    GET_TMK(return_code, sek_indx, tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
+    GET_TMK(return_code, (char *)sek_indx, (char *)tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
 
 	cbin_bin_to_hex((unsigned char *)sek_tmk_data, (unsigned char *)sek_tmk_hex, 16);
 	cbin_bin_to_hex((unsigned char *)tek_tmk_data, (unsigned char *)tek_tmk_hex, 16);
@@ -1975,7 +1977,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     bzero(chk_pikmak_hex, sizeof(chk_pikmak_hex));
 
     //GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
-    GET_WORK_KEY(return_code, sek_indx, sign_sek_indx, tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
+    GET_WORK_KEY(return_code, (char *)sek_indx, (char *)sign_sek_indx, (char *)tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
 	cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
 	cstr_upper(sek_pikmak_hex);
 
@@ -2019,6 +2021,20 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
 	dcs_log(0, 0, "%s", term_key1);
 	dcs_log(0, 0, "%s", rsa_key);
 
+	dcs_log(0, 0, "%s", json_object_to_json_string(request));
+
+	if(term_key1 == NULL) {
+        snprintf(err_msg, err_size, "%s终端应用密钥为空", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+	if(rsa_key == NULL) {
+        snprintf(err_msg, err_size, "%s公钥为空", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
 	char rsa_key_bin[512];
 	cbin_hex_to_bin((unsigned char *)rsa_key, (unsigned char *)rsa_key_bin, strlen(rsa_key));
 
@@ -2031,7 +2047,7 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     bzero(encrypt_data, sizeof(encrypt_data));
 	bzero(encrypt_hex, sizeof(encrypt_hex));
 
-    DES_TO_RSA_KEY(return_code, sek_indx, term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
+    DES_TO_RSA_KEY(return_code, (char *)sek_indx, (char *)term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
 	
 	cbin_bin_to_hex((unsigned char *)encrypt_data, (unsigned char *)encrypt_hex, encrypt_data_len);
 	cstr_upper(encrypt_hex);
