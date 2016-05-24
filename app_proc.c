@@ -707,7 +707,9 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
 
 	int64_t offset = 0, len = 0; 
 	int n = net_send_http_file2(&st, get_header(hm, "Range"), custom_headers, outbuf, outsize, &offset, &len);
-	
+
+
+	dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__,n,outbuf);
 
 	/*
     int status_code = 200;
@@ -753,7 +755,7 @@ int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
     int status_code = 200;
     char *status_message = "OK";
 
-	return snprintf(outbuf, outsize,
+	int n = snprintf(outbuf, outsize,
                "HTTP/1.1 %d %s\r\n"
                "Accept-Ranges: bytes\r\n"
                "Content-Type: application/octet-stream\r\n"
@@ -761,6 +763,8 @@ int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
                "\r\n"
                "\r\n",
                status_code, status_message, st.st_size);
+	dcs_debug(0, 0, "at %s(%s:%d) %.*s", __FUNCTION__, __FILE__, __LINE__,n, outbuf);
+	return n;
 }
 
 
