@@ -11,10 +11,14 @@ ALL_OBJS = $(ALL_CFILES:.c=.o)
 PC_SRCS = $(filter %.pc,$(ALL_SRCS))
 PC_CFILES = $(PC_SRCS:.pc=.c)
 
-all: tms
+all: tms parafile
 
 tms: $(ALL_OBJS)
 	$(CC) $(ALL_OBJS) -o $@ $(CFLAGS) $(LDFLAGS) $(LIBS)
+
+parafile: parafile.o
+	$(CC) parafile.o -o $@ $(CFLAGS) $(LDFLAGS) $(LIBS)
+	
 
 %c: %pc
 	proc $< $@ unsafe_null=yes mode=oracle dbms=v8 parse=full include=\(include/cutil,include/json-c\)
