@@ -60,7 +60,7 @@ int string_cmp(const string_t *str1, const char *str2) {
 
 
 
-int str2int(char *s) {
+unsigned int to_uint16(char *s) {
     unsigned char *p = (unsigned char *)s;
     return p[0] + (p[1] << 8);
 }
@@ -78,7 +78,7 @@ void parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
     para->ver.len = 32;
     offset += para->ver.len;
 
-    para->para_len = str2int(para->buf+offset);
+    para->para_len = to_uint16(para->buf+offset);
     offset += 2;
 
     if(para->para_len > MAX_PARA_SIZE) {
@@ -87,12 +87,12 @@ void parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
 
     int i;
     for(i = 0; i < para->para_len; i++) {
-        para->para[i].k.p =  para->buf + str2int(para->buf+offset);
-        para->para[i].k.len = str2int(para->buf+offset+2);
+        para->para[i].k.p =  para->buf + to_uint16(para->buf+offset);
+        para->para[i].k.len = to_uint16(para->buf+offset+2);
         offset += 4;
 
-        para->para[i].v.p =  para->buf + str2int(para->buf+offset);
-        para->para[i].v.len = str2int(para->buf+offset+2);
+        para->para[i].v.p =  para->buf + to_uint16(para->buf+offset);
+        para->para[i].v.len = to_uint16(para->buf+offset+2);
         offset += 4;
     }
 }
