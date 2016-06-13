@@ -5,55 +5,10 @@
 #include <errno.h>
 #include <assert.h>
 
-
-#define MAX_PARA_BUF_SIZE 1024*16
-#define MAX_NEWLAND_OPTIONS_SIZE 128
-#define NEWLAND_PARA_VER_SIZE 32
-
-#define MAX_PAX_OPTIONS_SIZE 128
-
-struct para_str_s {
-    char *p;
-    int len;
-};
-
-typedef struct para_str_s para_str_t;
+#include "parafile.h"
 
 
-struct newland_option_s {
-    para_str_t key;
-    para_str_t value;
-};
-
-typedef struct newland_option_s newland_option_t;
-
-//新大陆
-struct newland_para_s {
-    newland_option_t options[MAX_NEWLAND_OPTIONS_SIZE];
-    int len;
-    para_str_t ver;
-};
-
-typedef struct newland_para_s newland_para_t;
-
-
-//百富
-struct pax_option_s {
-    char key[8];
-    char value[120];
-};
-
-typedef struct pax_option_s pax_option_t;
-
-struct pax_para_s {
-    pax_option_t options[MAX_PAX_OPTIONS_SIZE];
-    int len;
-};
-
-typedef struct pax_para_s pax_para_t;
-
-
-void *memdup(void *src, size_t n) {
+static void *memdup(void *src, size_t n) {
     void *dest = malloc(n);
     if(dest != NULL) {
         memcpy(dest, src, n);
@@ -62,7 +17,7 @@ void *memdup(void *src, size_t n) {
 }
 
 
-int para_str_cmp(const para_str_t *str1, const char *str2) {
+static int para_str_cmp(const para_str_t *str1, const char *str2) {
     size_t n2 = strlen(str2), n1 = str1->len;
     int r = memcmp(str1->p, str2, (n1 < n2) ? n1 : n2);
     if(r == 0) {
@@ -72,7 +27,7 @@ int para_str_cmp(const para_str_t *str1, const char *str2) {
 }
 
 
-unsigned int to_uint16(char *s) {
+static unsigned int to_uint16(char *s) {
     unsigned char *p = (unsigned char *)s;
     return p[0] + (p[1] << 8);
 }
@@ -94,7 +49,7 @@ void newland_para_destroy(newland_para_t *para) {
 }
 
 int parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
-    int offset = 0, i;
+    int offset = 0, i, key_offset, value_offset;
 
     if(buf_len < 34) {
         return -1;
@@ -108,26 +63,37 @@ int parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
     offset += 2;
 
     if(para->len > MAX_NEWLAND_OPTIONS_SIZE) {
+		newland_para_destroy(para);
         return -1;
     }
 
     if(offset +  para->len * 8 > buf_len) {
+		newland_para_destroy(para);
         return -1;
     }
 
     for(i = 0; i < para->len; i++) {
+		key_offset = to_uint16(buf+offset);
         para->options[i].key.len = to_uint16(buf+offset+2);
-		para->options[i].value.len = to_uint16(buf+offset+6);
 		
-        para->options[i].key.p = memdup(buf + to_uint16(buf+offset), para->options[i].key.len);
-        para->options[i].value.p = memdup(buf + to_uint16(buf+offset), para->options[i].value.len);
+		value_offset = to_uint16(buf+offset+4);
+		para->options[i].value.len = to_uint16(buf+offset+6);
+
+		if(key_offset + para->options[i].key.len > buf_len ||
+			value_offset + para->options[i].value.len > buf_len) {
+			newland_para_destroy(para);
+			return -1;
+		}
+		
+        para->options[i].key.p = memdup(buf + key_offset, para->options[i].key.len);
+        para->options[i].value.p = memdup(buf + value_offset, para->options[i].value.len);
         offset += 8;
     }
 
-    return 0;
+    return 0;	
 }
 
-int update_newland_para(newland_para_t *para, char *key, char *value) {
+int update_newland_para(newland_para_t *para, const char *key, const char *value) {
     int i;
     for(i = 0; i < para->len; i++) {
         if(para_str_cmp(&para->options[i].key, key) == 0) {
@@ -142,7 +108,7 @@ int update_newland_para(newland_para_t *para, char *key, char *value) {
         para->len++;
 
         para->options[i].key.len = strlen(key);
-        para->options[i].key.p = memdup(key, para->options[i].key.len);
+        para->options[i].key.p = memdup((void *)key, para->options[i].key.len);
     }
 
     if(para->options[i].value.p != NULL) {
@@ -150,7 +116,7 @@ int update_newland_para(newland_para_t *para, char *key, char *value) {
     }
 
     para->options[i].value.len = strlen(value);
-    para->options[i].value.p = memdup(value, para->options[i].value.len);
+    para->options[i].value.p = memdup((void *)value, para->options[i].value.len);
 
     return 0;
 }
@@ -228,7 +194,7 @@ int parse_pax_para(char *buf, int buf_len, pax_para_t *para) {
 }
 
 
-int update_pax_para(pax_para_t *para, char *key, char *value) {
+int update_pax_para(pax_para_t *para, const char *key, const char *value) {
     int i;
     for(i = 0; i < para->len; i++) {
         if(strncmp(para->options[i].key, key, 8) == 0) {
@@ -259,6 +225,7 @@ void pax_para_to_file(pax_para_t *para, FILE *fp) {
     }
 }
 
+#if 0
 
 void print_newland_para(newland_para_t *newland) {
     int i;
@@ -276,7 +243,6 @@ void print_pax_para(pax_para_t *pax) {
         fprintf(stderr, "[%d]=[%.*s][%.*s]\n", i, 8, pax->options[i].key, 120, pax->options[i].value);
     }
 }
-
 
 
 int main(int argc, char *argv[]) {
@@ -350,4 +316,5 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+#endif
 

@@ -20,5 +20,9 @@ cp ../libsql/libsql.a lib/
 cp ../libnet/*.h include/net/
 cp ../libnet/libnet.a lib/
 
+#libini
+cp ../libini/*.h include/ini/
+cp ../libini/libini.a lib/
+
 make clean
 make

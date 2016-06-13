@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <uuid/uuid.h>
 
+#include "ibdcs.h"
 #include "base.h"
 #include "frame.h"
 #include "md5.h"

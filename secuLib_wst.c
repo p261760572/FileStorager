@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
-
-#include "folder.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+
+#include "ibdcs.h"
+#include "folder.h"
+
 #define gettid() syscall(__NR_gettid)
 
 #define DCS_SEC_NAME "effi_sec.conf"
@@ -854,8 +856,8 @@ int DES_TO_MD5(char *return_code, char *sek_index, char *key, int in_length, cha
 	buffer[nLen++]= 0;
 
 	//数据长度
-	buffer[nLen++]=atoi(in_length)/256;
-    buffer[nLen++]=atoi(in_length)%256;
+	buffer[nLen++]=in_length/256;
+    buffer[nLen++]=in_length%256;
 
 	//数据
 	memcpy(buffer+nLen,in_data,in_length);

@@ -35,6 +35,8 @@
 #include "data_acl.h"
 #include "action_handler.h"
 #include "secuLib_wst.h"
+#include "parafile.h"
+#include "ini_parser.h"
 
 extern void send_file2(int fd, int *flag, const char *path, long offset, long file_size);
 
@@ -1835,9 +1837,9 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
     } else {
         char buf[33], buf_hex[33];
         int buf_len = 0;
-		
+
         bzero(buf, sizeof(buf));
-		bzero(buf_hex, sizeof(buf_hex));
+        bzero(buf_hex, sizeof(buf_hex));
         //md5(buf, ctx->body, sign_key, 0);
 
         const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
@@ -1850,7 +1852,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
         DES_TO_MD5(return_code, (char *)sign_sek_indx,(char *)sign_key, ctx->body_len, (char *)ctx->body, &buf_len, buf);
 
-		cbin_bin_to_hex((unsigned char *)buf, (unsigned char *)buf_hex, buf_len);
+        cbin_bin_to_hex((unsigned char *)buf, (unsigned char *)buf_hex, buf_len);
 
         /*
         cmd5_ctx_t md5;
@@ -1876,7 +1878,7 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     char *params[8];
     int params_len;
 
-	//前提表达式检测
+    //前提表达式检测
     if(!fun_config_test_value(config->test, ctx, request)) {
         return 0;
     }
@@ -1900,32 +1902,32 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
     char sek_tmk_data[100];
     char tek_tmk_data[100];
     char chk_tmk_data[100];
-	
-	char sek_tmk_hex[100];
-	char tek_tmk_hex[100];
-	char chk_tmk_hex[100];
+
+    char sek_tmk_hex[100];
+    char tek_tmk_hex[100];
+    char chk_tmk_hex[100];
 
     bzero(return_code, sizeof(return_code));
     bzero(sek_tmk_data, sizeof(sek_tmk_data));
     bzero(tek_tmk_data, sizeof(tek_tmk_data));
     bzero(chk_tmk_data, sizeof(chk_tmk_data));
-	bzero(sek_tmk_hex, sizeof(sek_tmk_hex));
+    bzero(sek_tmk_hex, sizeof(sek_tmk_hex));
     bzero(tek_tmk_hex, sizeof(tek_tmk_hex));
     bzero(chk_tmk_hex, sizeof(chk_tmk_hex));
 
     GET_TMK(return_code, (char *)sek_indx, (char *)tek_indx, 2, sek_tmk_data, tek_tmk_data, chk_tmk_data);
 
-	cbin_bin_to_hex((unsigned char *)sek_tmk_data, (unsigned char *)sek_tmk_hex, 16);
-	cbin_bin_to_hex((unsigned char *)tek_tmk_data, (unsigned char *)tek_tmk_hex, 16);
-	cstr_upper(sek_tmk_hex);
-	cstr_upper(tek_tmk_hex);
+    cbin_bin_to_hex((unsigned char *)sek_tmk_data, (unsigned char *)sek_tmk_hex, 16);
+    cbin_bin_to_hex((unsigned char *)tek_tmk_data, (unsigned char *)tek_tmk_hex, 16);
+    cstr_upper(sek_tmk_hex);
+    cstr_upper(tek_tmk_hex);
 
     fun_config_t temp_config;
     //memcpy(&temp_config, config, sizeof(temp_config));
-	bzero(&temp_config, sizeof(temp_config));
+    bzero(&temp_config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
 
-	json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_hex));
+    json_object_object_add(request, tmk_key1, json_object_new_string(sek_tmk_hex));
     json_object_object_add(request, tmk_key2, json_object_new_string(tek_tmk_hex));
 
     if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
@@ -1941,7 +1943,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     char *params[8];
     int params_len;
 
-	//前提表达式检测
+    //前提表达式检测
     if(!fun_config_test_value(config->test, ctx, request)) {
         return 0;
     }
@@ -1965,7 +1967,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     char sek_pikmak_data[100];
     char tmk_pikmak_data[100];
     char chk_pikmak_data[100];
-	char sek_pikmak_hex[100];
+    char sek_pikmak_hex[100];
     char tmk_pikmak_hex[100];
     char chk_pikmak_hex[100];
 
@@ -1973,23 +1975,23 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     bzero(sek_pikmak_data, sizeof(sek_pikmak_data));
     bzero(tmk_pikmak_data, sizeof(tmk_pikmak_data));
     bzero(chk_pikmak_data, sizeof(chk_pikmak_data));
-	bzero(sek_pikmak_hex, sizeof(sek_pikmak_hex));
+    bzero(sek_pikmak_hex, sizeof(sek_pikmak_hex));
     bzero(tmk_pikmak_hex, sizeof(tmk_pikmak_hex));
     bzero(chk_pikmak_hex, sizeof(chk_pikmak_hex));
 
     //GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
     GET_WORK_KEY(return_code, (char *)sek_indx, (char *)sign_sek_indx, (char *)tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
-	cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
-	cstr_upper(sek_pikmak_hex);
+    cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
+    cstr_upper(sek_pikmak_hex);
 
-	//dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,sek_pikmak_hex);
+    //dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,sek_pikmak_hex);
 
     fun_config_t temp_config;
     //memcpy(&temp_config, config, sizeof(temp_config));
     bzero(&temp_config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
 
-	json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_hex));
+    json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_hex));
 
     if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
         ret = -1;
@@ -2019,41 +2021,41 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     const char *rsa_key = json_util_object_get_string(request, params[2]);
     const char *encrypt_key = params[3];
 
-	dcs_log(0, 0, "%s", term_key1);
-	dcs_log(0, 0, "%s", rsa_key);
+    dcs_log(0, 0, "%s", term_key1);
+    dcs_log(0, 0, "%s", rsa_key);
 
-	dcs_log(0, 0, "%s", json_object_to_json_string(request));
+    dcs_log(0, 0, "%s", json_object_to_json_string(request));
 
-	if(term_key1 == NULL) {
+    if(term_key1 == NULL) {
         snprintf(err_msg, err_size, "%s终端应用密钥为空", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-	if(rsa_key == NULL) {
+    if(rsa_key == NULL) {
         snprintf(err_msg, err_size, "%s公钥为空", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-	char rsa_key_bin[512];
-	cbin_hex_to_bin((unsigned char *)rsa_key, (unsigned char *)rsa_key_bin, strlen(rsa_key));
+    char rsa_key_bin[512];
+    cbin_hex_to_bin((unsigned char *)rsa_key, (unsigned char *)rsa_key_bin, strlen(rsa_key));
 
     char return_code[4];
     char encrypt_data[512];
     int encrypt_data_len = 0;
-	char encrypt_hex[2048+1];
-	
+    char encrypt_hex[2048+1];
+
     bzero(return_code, sizeof(return_code));
     bzero(encrypt_data, sizeof(encrypt_data));
-	bzero(encrypt_hex, sizeof(encrypt_hex));
+    bzero(encrypt_hex, sizeof(encrypt_hex));
 
     DES_TO_RSA_KEY(return_code, (char *)sek_indx, (char *)term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
-	
-	cbin_bin_to_hex((unsigned char *)encrypt_data, (unsigned char *)encrypt_hex, encrypt_data_len);
-	cstr_upper(encrypt_hex);
 
-	dcs_log(0, 0, "%s", encrypt_hex);
+    cbin_bin_to_hex((unsigned char *)encrypt_data, (unsigned char *)encrypt_hex, encrypt_data_len);
+    cstr_upper(encrypt_hex);
+
+    dcs_log(0, 0, "%s", encrypt_hex);
 
     json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_hex));
 
@@ -2075,6 +2077,14 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         return -1;
     }
 
+    const char *manufacturer = json_util_object_get_string(request, "manufacturer");
+
+    if(cstr_empty(manufacturer)) {
+        snprintf(err_msg, err_size, "manufacturer为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
     const char *file_path = json_util_object_get_string(request, params[0]);
     const char *mchnt_cd = json_util_object_get_string(request, params[1]);
     const char *term_id = json_util_object_get_string(request, params[2]);
@@ -2082,47 +2092,114 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     const char *new_file_path = params[4];
 
 
+
     char source_path[CFILE_MAX_PATH];
     char dest_path[CFILE_MAX_PATH];
     char today[20];
     unsigned char uuid_buf[33];
-	char *suffix;
+    char *suffix;
 
-	cdate_now_date(today, sizeof(today));
+    cdate_now_date(today, sizeof(today));
     gen_uuid(uuid_buf);
 
     snprintf(source_path, sizeof(source_path), "%s%s", document_root, file_path);
     suffix = cfile_get_suffix(cfile_get_filename(source_path));
-	suffix = (suffix == NULL ? "" : suffix);
+    suffix = (suffix == NULL ? "" : suffix);
     snprintf(dest_path, sizeof(dest_path), "%s/%s/%s/%s%s", document_root, "temp", today, uuid_buf, suffix);
 
-    if(cfile_copy(source_path, dest_path) != 0) {
-        //error
-        snprintf(err_msg, err_size, "复制参数文件失败");
+    int fd;
+    FILE *fw, *fp;
+    if((fd = cfile_create(dest_path)) == -1) {
+        snprintf(err_msg, err_size, "创建参数文件失败");
         dcs_log(0, 0, "at %s(%s:%d) %s[%s][%s]",__FUNCTION__,__FILE__,__LINE__,err_msg,source_path,dest_path);
         ret = -1;
-
     } else {
-        FILE *fp = fopen(dest_path, "a");
+        close(fd);
 
-        if(fp == NULL) {
+        if((fw = fopen(dest_path, "wb")) == NULL) {
             snprintf(err_msg, err_size, "打开文件失败");
             dcs_log(0, 0, "at %s(%s:%d) %s[%s]",__FUNCTION__,__FILE__,__LINE__,err_msg,dest_path);
             ret = -1;
+        } else if((fp = fopen(source_path, "rb")) == NULL) {
+            snprintf(err_msg, err_size, "打开文件失败");
+            dcs_log(0, 0, "at %s(%s:%d) %s[%s]",__FUNCTION__,__FILE__,__LINE__,err_msg,source_path);
+            ret = -1;
         } else {
+            char buf[MAX_BUFFER_SIZE*8];
+            size_t n;
 
-            if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                fprintf(fp, "MCHNT_CD=%s\n", mchnt_cd);
-                fprintf(fp, "TERM_ID=%s\n", term_id);
+            n = fread(buf, 1, sizeof(buf)-1, fp);
+            buf[n] = '\0';
+
+            //新大陆
+            if(strcmp(manufacturer, "NEWLAND") == 0) {
+                newland_para_t newland;
+                newland_para_init(&newland);
+                parse_newland_para(buf, n, &newland);
+
+                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                    update_newland_para(&newland, "01000005", term_id);
+                    update_newland_para(&newland, "01000001", mchnt_cd);
+                }
+
+                if(!cstr_empty(psam_no)) {
+                    update_newland_para(&newland, "01000001", psam_no);;
+                }
+
+                newland_para_to_file(&newland, fw);
+
+                newland_para_destroy(&newland);
             }
 
-            if(!cstr_empty(psam_no)) {
-                fprintf(fp, "PSAM_NO=%s\n", psam_no);
+            //百富
+            if(strcmp(manufacturer, "PAX") == 0) {
+                pax_para_t pax;
+                pax_para_init(&pax);
+                parse_pax_para(buf, n, &pax);
+
+                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                    update_pax_para(&pax, "终端号", term_id);
+                    update_pax_para(&pax, "商户号", mchnt_cd);
+                }
+
+                if(!cstr_empty(psam_no)) {
+                    update_pax_para(&pax, "PSAM", psam_no);;
+                }
+
+                pax_para_to_file(&pax, fw);
+
+                pax_para_destroy(&pax);
             }
 
-            fclose(fp);
+            //新国都
+            if(strcmp(manufacturer, "XGD") == 0) {
+                ini_parser_t *parser = ini_parser_new('#', '=');
+
+                ini_parse(parser, buf);
+
+                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                    ini_set(parser, "", "终端号", term_id);
+                    ini_set(parser, "", "商户号", mchnt_cd);
+                }
+
+                if(!cstr_empty(psam_no)) {
+                    ini_set(parser, "", "商户号", psam_no);
+                }
+
+                ini_to_file(parser, fw);
+
+                ini_parser_free(parser);
+            }
 
             json_object_object_add(request, new_file_path, json_object_new_string(dest_path+strlen(document_root)));
+        }
+
+        if(fw != NULL) {
+            fclose(fw);
+        }
+
+        if(fp != NULL) {
+            fclose(fp);
         }
     }
 
@@ -2133,7 +2210,7 @@ int module_batch_generate_para_file(fun_config_t *config, process_ctx_t *ctx, js
     int ret = 0;
     int i, len;
 
-	dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
+    dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
 
     if(json_object_get_type(request) != json_type_array) {
         ret = -1;
@@ -2160,7 +2237,7 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
     char param_list[512+1];
     char *params[8];
     int params_len;
-	int len;
+    int len;
 
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
@@ -2174,27 +2251,27 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
     const char *key = params[0];
     const char *column =  params[1];
     const char *new_key = params[2];
-	json_object *array = json_util_object_get(request, key);
-	json_object *new_array = NULL;
+    json_object *array = json_util_object_get(request, key);
+    json_object *new_array = NULL;
 
-	
+
     if(json_object_get_type(array) != json_type_array) {
         ret = -1;
         snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
         dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__,err_size,err_msg);
     } else {
-    	new_array = json_object_new_array();
-		
+        new_array = json_object_new_array();
+
         len = json_object_array_length(array);
         for(i = 0; i < len; i ++) {
             json_object *row = json_object_array_get_idx(array, i);
-		  	json_object_array_add(new_array, json_object_get(json_util_object_get(row, column)));
-		  	//json_object_array_add(new_array, json_object_new_string(""));
+            json_object_array_add(new_array, json_object_get(json_util_object_get(row, column)));
+            //json_object_array_add(new_array, json_object_new_string(""));
         }
 
-		//key==new_key
-		json_object_object_add(request, new_key, new_array);
-		//json_object_put(new_array);
+        //key==new_key
+        json_object_object_add(request, new_key, new_array);
+        //json_object_put(new_array);
     }
 
     return ret;
@@ -2202,8 +2279,8 @@ int module_extract_column_array(fun_config_t *config, process_ctx_t *ctx, json_o
 
 
 int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-	int ret = 0;
-	int i, len;
+    int ret = 0;
+    int i, len;
     char param_list[512+1];
     char *params[3]; //注意大小
     int params_len;
@@ -2218,11 +2295,11 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
     }
 
 
-	char *module_name = params[0];
-	char *input_key = params[1];
-	char *sub_params = params[2]; 
+    char *module_name = params[0];
+    char *input_key = params[1];
+    char *sub_params = params[2];
 
-	dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
+    dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
 
     if(json_object_get_type(request) != json_type_array) {
         ret = -1;
@@ -2234,13 +2311,13 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
         for(i = 0; i < len; i ++) {
             json_object *row = json_object_array_get_idx(request, i);
 
-			fun_config_t temp_config;
-		    memcpy(&temp_config, config, sizeof(temp_config));
-			cstr_copy(temp_config.module_name, module_name, sizeof(temp_config.module_name));
-			cstr_copy(temp_config.input, input_key, sizeof(temp_config.input));
-		    cstr_copy(temp_config.param_list, sub_params, sizeof(temp_config.param_list));
+            fun_config_t temp_config;
+            memcpy(&temp_config, config, sizeof(temp_config));
+            cstr_copy(temp_config.module_name, module_name, sizeof(temp_config.module_name));
+            cstr_copy(temp_config.input, input_key, sizeof(temp_config.input));
+            cstr_copy(temp_config.param_list, sub_params, sizeof(temp_config.param_list));
 
-		    ret = execute_config(&temp_config, ctx, row, response, err_msg, err_size);
+            ret = execute_config(&temp_config, ctx, row, response, err_msg, err_size);
         }
     }
 
@@ -2272,13 +2349,13 @@ struct execute_module my_check_module[] = {
     {"change_password", &module_change_password},
     {"add", &module_add},
     {"check_sign", &module_check_sign},
-	{"generate_tmk", &module_generate_tmk},
-	{"generate_sign_key", &module_generate_sign_key},
-	{"rsa_pk_encrypt", &module_rsa_pk_encrypt},
-	{"generate_para_file", &module_generate_para_file},
-	{"batch_generate_para_file", &module_batch_generate_para_file},
-	{"extract_column_array", &module_extract_column_array},
-	{"batch_execute", &module_batch_execute},
+    {"generate_tmk", &module_generate_tmk},
+    {"generate_sign_key", &module_generate_sign_key},
+    {"rsa_pk_encrypt", &module_rsa_pk_encrypt},
+    {"generate_para_file", &module_generate_para_file},
+    {"batch_generate_para_file", &module_batch_generate_para_file},
+    {"extract_column_array", &module_extract_column_array},
+    {"batch_execute", &module_batch_execute},
     {NULL,NULL}
 };
 
