@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <uuid/uuid.h>
 
+#include "ibdcs.h"
 #include "base.h"
 #include "frame.h"
 #include "md5.h"
@@ -1817,7 +1818,7 @@ int module_export_xls(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
 
 int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0, i;
+    int ret = 0;
     char param_list[512+1];
     char *params[8];
     int params_len;
@@ -1840,7 +1841,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
         //md5(buf, ctx->body, sign_key, 0);
 
         const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
-        const char *tmk_key1 = json_util_object_get_string(request, params[2]);
+        //const char *tmk_key1 = json_util_object_get_string(request, params[2]);
         const char *sign_key = params[3];
 
         char return_code[4];
@@ -1870,7 +1871,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 }
 
 int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0, i;
+    int ret = 0;
     char param_list[512+1];
     char *params[8];
     int params_len;
@@ -1935,7 +1936,7 @@ int module_generate_tmk(fun_config_t *config, process_ctx_t *ctx, json_object *r
 }
 
 int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0, i;
+    int ret = 0;
     char param_list[512+1];
     char *params[8];
     int params_len;
@@ -1999,7 +2000,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
 
 
 int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0, i;
+    int ret = 0;
     char param_list[512+1];
     char *params[8];
     int params_len;
@@ -2060,7 +2061,7 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
 }
 
 int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0, i;
+    int ret = 0;
     char param_list[512+1];
     char *params[8];
     int params_len;

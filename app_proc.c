@@ -13,7 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
+#include "ibdcs.h"
 #include "base.h"
 #include "http_parse.h"
 #include "frame.h"
@@ -50,10 +50,11 @@ static const char *ajax_response_json = "HTTP/1.1 200 OK\r\n"
                                         "Cache: no-cache\r\n"
                                         "Content-Type: application/json\r\n";
 
+#if 0
 static const char *ajax_response_text = "HTTP/1.1 200 OK\r\n"
                                         "Cache: no-cache\r\n"
                                         "Content-Type: text/plain\r\n";
-
+#endif
 
 static int reload_flag = 0, reconnect_flag = 0;
 
