@@ -2178,12 +2178,12 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 ini_parse(parser, buf);
 
                 if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                    ini_set(parser, "", "终端号", term_id);
-                    ini_set(parser, "", "商户号", mchnt_cd);
+                    ini_set(parser, "TERMINAL", "terminal", term_id);
+                    ini_set(parser, "TERMINAL", "merchant", mchnt_cd);
                 }
 
                 if(!cstr_empty(psam_no)) {
-                    ini_set(parser, "", "商户号", psam_no);
+                    ini_set(parser, "TERMINAL", "psam", psam_no);
                 }
 
                 ini_to_file(parser, fw);
