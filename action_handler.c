@@ -2077,6 +2077,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         return -1;
     }
 
+#if 0
     const char *manufacturer = json_util_object_get_string(request, "manufacturer");
 
     if(cstr_empty(manufacturer)) {
@@ -2084,6 +2085,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
+#endif
 
     const char *file_path = json_util_object_get_string(request, params[0]);
     const char *mchnt_cd = json_util_object_get_string(request, params[1]);
@@ -2115,6 +2117,8 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         ret = -1;
     } else {
         close(fd);
+
+		#if 0
 
         if((fw = fopen(dest_path, "wb")) == NULL) {
             snprintf(err_msg, err_size, "打开文件失败");
@@ -2190,7 +2194,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
                 ini_parser_free(parser);
             }
-
+			
             json_object_object_add(request, new_file_path, json_object_new_string(dest_path+strlen(document_root)));
         }
 
@@ -2201,6 +2205,10 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         if(fp != NULL) {
             fclose(fp);
         }
+
+		#endif
+
+		json_object_object_add(request, new_file_path, json_object_new_string(source_path+strlen(document_root)));
     }
 
     return ret;
