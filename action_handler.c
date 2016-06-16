@@ -2077,7 +2077,6 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         return -1;
     }
 
-#if 0
     const char *manufacturer = json_util_object_get_string(request, "manufacturer");
 
     if(cstr_empty(manufacturer)) {
@@ -2085,7 +2084,6 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
-#endif
 
     const char *file_path = json_util_object_get_string(request, params[0]);
     const char *mchnt_cd = json_util_object_get_string(request, params[1]);
@@ -2118,7 +2116,6 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     } else {
         close(fd);
 
-		#if 0
 
         if((fw = fopen(dest_path, "wb")) == NULL) {
             snprintf(err_msg, err_size, "打开文件失败");
@@ -2176,6 +2173,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
             }
 
             //新国都
+#if 0
             if(strcmp(manufacturer, "XGD") == 0) {
                 ini_parser_t *parser = ini_parser_new('#', '=');
 
@@ -2194,7 +2192,28 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
                 ini_parser_free(parser);
             }
-			
+#endif
+
+            if(strcmp(manufacturer, "XGD") == 0) {
+
+                xgd_para_t xgd;
+                xgd_para_init(&xgd);
+                parse_xgd_para(buf, &xgd);
+
+                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                    update_xgd_para(&xgd, "终端号", 0, 8, 8, term_id);
+                    update_xgd_para(&xgd, "商户号", 0, 15, 15, mchnt_cd);
+                }
+
+                if(!cstr_empty(psam_no)) {
+                    update_xgd_para(&xgd, "PSAM", 0, 16, 16, psam_no);;
+                }
+
+                xgd_para_to_file(&xgd, fw);
+
+                xgd_para_destroy(&xgd);
+            }
+
             json_object_object_add(request, new_file_path, json_object_new_string(dest_path+strlen(document_root)));
         }
 
@@ -2206,9 +2225,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
             fclose(fp);
         }
 
-		#endif
-
-		json_object_object_add(request, new_file_path, json_object_new_string(source_path+strlen(document_root)));
+        //json_object_object_add(request, new_file_path, json_object_new_string(source_path+strlen(document_root)));
     }
 
     return ret;

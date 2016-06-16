@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <assert.h>
 
+#include "cdefs.h"
+#include "cstr.h"
 #include "parafile.h"
 
 
@@ -45,7 +47,7 @@ void newland_para_destroy(newland_para_t *para) {
         free(para->options[i].value.p);
     }
     free(para->ver.p);
-	bzero(para, sizeof(*para));
+    bzero(para, sizeof(*para));
 }
 
 int parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
@@ -63,34 +65,34 @@ int parse_newland_para(char *buf, int buf_len, newland_para_t *para) {
     offset += 2;
 
     if(para->len > MAX_NEWLAND_OPTIONS_SIZE) {
-		newland_para_destroy(para);
+        newland_para_destroy(para);
         return -1;
     }
 
     if(offset +  para->len * 8 > buf_len) {
-		newland_para_destroy(para);
+        newland_para_destroy(para);
         return -1;
     }
 
     for(i = 0; i < para->len; i++) {
-		key_offset = to_uint16(buf+offset);
+        key_offset = to_uint16(buf+offset);
         para->options[i].key.len = to_uint16(buf+offset+2);
-		
-		value_offset = to_uint16(buf+offset+4);
-		para->options[i].value.len = to_uint16(buf+offset+6);
 
-		if(key_offset + para->options[i].key.len > buf_len ||
-			value_offset + para->options[i].value.len > buf_len) {
-			newland_para_destroy(para);
-			return -1;
-		}
-		
+        value_offset = to_uint16(buf+offset+4);
+        para->options[i].value.len = to_uint16(buf+offset+6);
+
+        if(key_offset + para->options[i].key.len > buf_len ||
+           value_offset + para->options[i].value.len > buf_len) {
+            newland_para_destroy(para);
+            return -1;
+        }
+
         para->options[i].key.p = memdup(buf + key_offset, para->options[i].key.len);
         para->options[i].value.p = memdup(buf + value_offset, para->options[i].value.len);
         offset += 8;
     }
 
-    return 0;	
+    return 0;
 }
 
 int update_newland_para(newland_para_t *para, const char *key, const char *value) {
@@ -167,7 +169,7 @@ int pax_para_init(pax_para_t *para) {
 }
 
 void pax_para_destroy(pax_para_t *para) {
-	bzero(para, sizeof(*para));
+    bzero(para, sizeof(*para));
 }
 
 
@@ -186,7 +188,7 @@ int parse_pax_para(char *buf, int buf_len, pax_para_t *para) {
     }
 
     if(offset != buf_len) {
-		pax_para_destroy(para);
+        pax_para_destroy(para);
         return -1;
     }
 
@@ -224,6 +226,92 @@ void pax_para_to_file(pax_para_t *para, FILE *fp) {
         fwrite(para->options[i].value, 1, sizeof(para->options[0].value), fp);
     }
 }
+
+
+int xgd_para_init(xgd_para_t *para) {
+    bzero(para, sizeof(*para));
+    return 0;
+}
+
+
+void xgd_para_destroy(xgd_para_t *para) {
+	int i;
+	for(i = 0; i < para->len; i++) {
+		free(para->options[i].key);
+		free(para->options[i].value);
+	}
+
+    bzero(para, sizeof(*para));
+}
+
+
+int parse_xgd_para(char *buf, xgd_para_t *para) {
+    
+	char *line[MAX_PAX_OPTIONS_SIZE+1], *p;
+	int n, i;
+	char key[1024], value[1024];
+    int value_type, value_min, value_max;
+	
+	n = cstr_split(buf, "\r\n", line, ARRAY_SIZE(line));
+	if(n > MAX_PAX_OPTIONS_SIZE) {
+		return -1;
+	}
+
+	for(i = 0; i < n; i++) {
+		p = cstr_trim(line[i]);
+		if(sscanf(p, "%s,%d,%d,%d,%s", key, &value_type, &value_min, &value_max, value) != 5) {
+            xgd_para_destroy(para);
+            return -1;
+        } else {
+            para->options[i].key = strdup(key);
+            para->options[i].value_type = value_type;
+            para->options[i].value_min = value_min;
+            para->options[i].value_max = value_max;
+            para->options[i].value = strdup(value);
+        }
+	}
+
+	para->len = n;
+
+    return 0;
+}
+
+
+int update_xgd_para(xgd_para_t *para, const char *key, int value_type, int value_min, int value_max, const char *value) {
+    int i;
+    for(i = 0; i < para->len; i++) {
+        if(strcmp(para->options[i].key, key) == 0) {
+            break;
+        }
+    }
+
+    if(i == para->len) {
+        if(para->len >= MAX_PAX_OPTIONS_SIZE) {
+            return -1;
+        }
+        para->len++;
+        para->options[i].key = strdup(key);
+    }
+
+    free(para->options[i].value);
+    para->options[i].value_type = value_type;
+    para->options[i].value_min = value_min;
+    para->options[i].value_max = value_max;
+    para->options[i].value = strdup(value);
+
+    return 0;
+}
+
+
+void xgd_para_to_file(xgd_para_t *para, FILE *fp) {
+    int i;
+    //Ñ¡ÏîÄÚÈÝ
+    for(i = 0; i < para->len; i++) {
+        fprintf(fp, "%s,%d,%d,%d,%s\n", para->options[i].key, para->options[i].value_type,
+                para->options[i].value_min, para->options[i].value_max, para->options[i].value);
+    }
+}
+
 
 #if 0
 

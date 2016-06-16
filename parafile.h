@@ -23,6 +23,8 @@ extern "C"{
 
 #define MAX_NEWLAND_OPTIONS_SIZE 128
 #define MAX_PAX_OPTIONS_SIZE 128
+#define MAX_XGD_OPTIONS_SIZE 128
+
 
 struct para_str_s {
     char *p;
@@ -32,6 +34,7 @@ struct para_str_s {
 typedef struct para_str_s para_str_t;
 
 
+//新大陆
 struct newland_option_s {
     para_str_t key;
     para_str_t value;
@@ -39,7 +42,7 @@ struct newland_option_s {
 
 typedef struct newland_option_s newland_option_t;
 
-//新大陆
+
 struct newland_para_s {
     newland_option_t options[MAX_NEWLAND_OPTIONS_SIZE];
     int len;
@@ -64,17 +67,40 @@ struct pax_para_s {
 
 typedef struct pax_para_s pax_para_t;
 
+//新国都
+struct xgd_option_s {
+    char *key;
+	int value_type;
+	int value_min;
+	int value_max;
+    char *value;
+};
+
+typedef struct xgd_option_s xgd_option_t;
+
+struct xgd_para_s {
+    xgd_option_t options[MAX_XGD_OPTIONS_SIZE];
+    int len;
+};
+
+typedef struct xgd_para_s xgd_para_t;
+
 
 extern void newland_para_destroy(newland_para_t *para);
 extern int newland_para_init(newland_para_t *para);
 extern void newland_para_to_file(newland_para_t *para, FILE *fp);
 extern int parse_newland_para(char *buf, int buf_len, newland_para_t *para);
 extern int parse_pax_para(char *buf, int buf_len, pax_para_t *para);
+extern int parse_xgd_para(char *buf, xgd_para_t *para);
 extern void pax_para_destroy(pax_para_t *para);
 extern int pax_para_init(pax_para_t *para);
 extern void pax_para_to_file(pax_para_t *para, FILE *fp);
 extern int update_newland_para(newland_para_t *para, const char *key, const char *value);
 extern int update_pax_para(pax_para_t *para, const char *key, const char *value);
+extern int update_xgd_para(xgd_para_t *para, const char *key, int value_type, int value_min, int value_max, const char *value);
+extern void xgd_para_destroy(xgd_para_t *para);
+extern int xgd_para_init(xgd_para_t *para);
+extern void xgd_para_to_file(xgd_para_t *para, FILE *fp);
 
 #ifdef __cplusplus
 }
