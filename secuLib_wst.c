@@ -846,8 +846,8 @@ int DES_TO_MD5(char *return_code, char *sek_index, char *key, int in_length, cha
 	buffer[nLen++]= 0;
 
 	//密钥密文
-	memcpy(buffer+nLen,in_data,in_length);
-	nLen += in_length;
+	memcpy(buffer+nLen,key,16);
+	nLen += 16;
 
 	//摘要算法标识
 	buffer[nLen++]= 1;
@@ -877,7 +877,7 @@ int DES_TO_MD5(char *return_code, char *sek_index, char *key, int in_length, cha
         return -1;
     }
 	*out_length=(unsigned char)buffer[1]*256+(unsigned char)buffer[1+1];
-    memcpy(out_data,buffer+1,*out_length);
+    memcpy(out_data,buffer+3,*out_length);
     memcpy(return_code,"00",2);
     return 1;
 }

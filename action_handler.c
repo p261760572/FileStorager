@@ -1828,29 +1828,32 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-    const char *sign_key = json_util_object_get_string(request, params[0]);
+	const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
+    const char *sign_key = json_util_object_get_string(request, params[1]);
 
-    if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_key)) {
+    if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_sek_indx) || cstr_empty(sign_key)) {
         snprintf(err_msg, err_size, "签名验证失败");
         ret = -1;
         dcs_log(0, 0, "at %s(%s:%d) 签名要素不全",__FUNCTION__,__FILE__,__LINE__);
     } else {
         char buf[33], buf_hex[33];
         int buf_len = 0;
+		char sign_key_data[24];
 
         bzero(buf, sizeof(buf));
         bzero(buf_hex, sizeof(buf_hex));
         //md5(buf, ctx->body, sign_key, 0);
 
-        const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
-        //const char *tmk_key1 = json_util_object_get_string(request, params[2]);
-        const char *sign_key = params[3];
-
         char return_code[4];
 
         bzero(return_code, sizeof(return_code));
 
-        DES_TO_MD5(return_code, (char *)sign_sek_indx,(char *)sign_key, ctx->body_len, (char *)ctx->body, &buf_len, buf);
+		bzero(sign_key_data, sizeof(sign_key_data));
+		cbin_hex_to_bin(sign_key, sign_key_data, strlen(sign_key));
+
+		dcs_log(0, 0, "at %s(%s:%d) [%d]",__FUNCTION__,__FILE__,__LINE__,ctx->body_len);
+
+        DES_TO_MD5(return_code, (char *)sign_sek_indx,(char *)sign_key_data, ctx->body_len, (char *)ctx->body, &buf_len, buf);
 
         cbin_bin_to_hex((unsigned char *)buf, (unsigned char *)buf_hex, buf_len);
 
@@ -1862,10 +1865,10 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
         cmd5_hexdigest(&md5, (unsigned char *)buf);
         */
 
-        if(strcmp(ctx->sign, buf) != 0) {
+        if(strcmp(ctx->sign, buf_hex) != 0) {
             snprintf(err_msg, err_size, "签名验证失败");
             ret = -1;
-            dcs_log(0, 0, "at %s(%s:%d) [%s] [%s]",__FUNCTION__,__FILE__,__LINE__,ctx->sign, buf);
+            dcs_log(0, 0, "at %s(%s:%d) [%s] [%s]",__FUNCTION__,__FILE__,__LINE__,ctx->sign, buf_hex);
         }
     }
 
@@ -2050,12 +2053,15 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     bzero(encrypt_data, sizeof(encrypt_data));
     bzero(encrypt_hex, sizeof(encrypt_hex));
 
+	dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
+
     DES_TO_RSA_KEY(return_code, (char *)sek_indx, (char *)term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
 
     cbin_bin_to_hex((unsigned char *)encrypt_data, (unsigned char *)encrypt_hex, encrypt_data_len);
     cstr_upper(encrypt_hex);
 
-    dcs_log(0, 0, "%s", encrypt_hex);
+
+	dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
 
     json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_hex));
 
