@@ -1,355 +1,171 @@
-#include <time.h>
-#ifndef __BASE_H__
-#define __BASE_H__
-#define MAX_FIELD 100
-#define MAX_BUFFER 16384
-#define SYSTEM_FOLDNAME        "APPL"
-#define DB_MSG_TYPE           "DBMG"  //数据库私有域类型标识
-/*#define ICS_DEBUG(a)  {    if( a == 1 ){ \
-                             gl_dbg_len=sprintf(gl_dbg_buf,"%s",__FUNCTION__); \
-                             gl_fn_cnt=1; \
-                           }else if( a == 0 ){  \
-                           	 if(gl_dbg_cnt>100){ gl_dbg_cnt=1;gl_dbg_len=0;} \
-                           	 gl_fn_cnt++;  \
-                           	 gl_dbg_len +=snprintf(gl_dbg_buf+gl_dbg_len,sizeof(gl_dbg_buf)-gl_dbg_len,"||%s",__FUNCTION__); \
-                           }else if( a == 2 ){ \
-                              if(gl_dbg_cnt>100){ gl_dbg_cnt=1;gl_dbg_len=0;} \
-                              gl_fn_cnt++;\
-                              gl_dbg_len +=snprintf(gl_dbg_buf+gl_dbg_len,sizeof(gl_dbg_buf)-gl_dbg_len,"||%s",__FUNCTION__); \
-                              dcs_debug(0,0,"[%d]%s",gl_fn_cnt,gl_dbg_buf); \
-                           } \
-	                    }
-*/
-#define ICS_DEBUG(a)     
-//数据域字段定义区
-#define FIELD_AMOUNT           4   	//交易金额
-#define FIELD_AMOUNT_REAL      104 	//真实交易金额
-#define FIELD_PAY_FEE	       204 	//手续费
-#define FIELD_MSGID            0   	//消息头
-#define FIELD_CARD_NO		   2   	//卡号
-#define FIELD_POS_ENTRY_MD_CD  22  	//服务点输入方式码
-#define FIELD_INSTI_CODE	   33  	//机构号
-#define FIELD_TRACK2           35  	//二磁道信息
-#define FIELD_TRACK3           36  	//三磁道信息
-#define FIELD_TERM_ID1        41   	//终端信息1
-#define FIELD_PSAM_NO         20   	//PSAM_NO
-#define FIELD_TERM_ID2        42   	//终端信息2
-#define FIELD_IC_DATA         55   	//基于PBOC借贷记标准的IC卡数据域
-#define FIELD_TPDU            91   	//TPDU 
-#define FIELD_MENU_VERSION    92   	//菜单版本
-#define FIELD_RANDOM          93   	//RANDOM
-#define FIELD_BILL            44   	//账单号
-#define FIELD_MSG_SEQ         94   	//MSG_SEQ
-#define FIELD_PROG_VER        95   	//PROG_VER
-#define FIELD_FUNC_CODE       96   	//FUNC_CODE 
-#define POS_ENTRY_MD_CD       22   	//输入点方式
-#define FIELD_PIN             52   	//个人密码域
-#define FIELD_MAC             64   	//MAC域
-#define FIELD_RECODE          39   	//应答码域
-#define FIELD_DATE_TIME       7    	//日期时间
-#define FIELD_DATE_TIME_Y     99   	//系统时间
-#define FIELD_ACQ_INSTI_CODE  32   	//受理方机构号
-#define FIELD_IC_PARA         48   	//IC参数下载上送域
-#define FIELD_KEY             48   	//密钥数据
-#define SYS_TIME_OUT          60   	
-#define FIELD_DATE            13   	//日期
-#define FIELD_TIME            12   	//时间
-#define FIELD_AUTH_ID         38   	//授权码
-#define FIELD_TRA_NO          11   	//流水号
-#define FIELD_ACQ_INSTI_CODE  32   	//受理方机构号
-#define FIELD_SYS_REF_NO      37   	//系统参考号
-#define FIELD_SETTLE_DATE     15   	//清算日期
-#define FIELD_ORG_TRANS_INFO  90   	//原交易信息
-#define FIELD_BALANCE         54   	//余额
-#define FIELD_BALANCE_1       954  	//可用余额
-#define FIELD_INFO            48   	//一般数据
-//错误代码定义区
-#define CODE_CUPS_NOT_OPERATE  "91"
-#define CODE_INVALID_CARD      "14"
-#define CODE_SYSTEM_ERR        "96"
-#define CODE_MAC_ERR		   "A0"
-#define CODE_SAFE_ERR		   "A7"
-#define CODE_TIME_OUT  		   "98"
-#define CODE_INQUIRY		   "FA"
-#define CODE_NOT_EXIST		   "25"
-#define CODE_PIN_ERR           "99"
-#define CODE_PACK_ERR          "30"
-#define CODE_PROCESSING        "09"
-#define CODE_NO_SUPPORT        "40"
-#define CODE_AMOUNT_LIMIT      "61"
-#define CODE_COUNT_LIMIT       "65"
-#define CODE_CARD_NO_ALLOW     "57"
-#define CODE_INVALID_TRANS     "12"
-#define CODE_TRANS_ERR         "22"
+#ifndef _BASE_H_
+#define _BASE_H_
 
-//超时表基本结构
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <limits.h>
+#include "settings.h"
+#include "buffer.h"
 
-typedef struct{
-	char foldname[8 + 1];
-	char sys_date[8 + 1];
-	char sys_time[6 + 1]; 
-	char key[80 + 1];    //报文关键字
-	char flag[1 + 1]; //超时处理方式
-	int num;          //超时处理次数
-	time_t invalid_time; //报文应答超时时间
-	char first_key[80 + 1];  //交易受理节点报文键值，数据库关键字
-	char trans_type[4 + 1];
-	char remark[1024 + 1];  //备注信息存储
-}timeout_stru;
-//报文数据域定义结构
-typedef struct{
-   short id;     //不同接口报文字段域在系统全局定义的唯一标识符
-   char  name[40+1]; //专有报文中对应的字段域名称
-   char  is_compress; //上行 数据是否被压缩了 (0,不压缩，1压缩后补齐，2，压缩前补齐
-   char  len_type;   // 上行 0固定长，1一字节长度，2二字节长度
-   char  d_is_compress; //下行数据是否被压缩了 (0,不压缩，1压缩后补齐，2，压缩前补齐
-   char  d_len_type;   //下行 0固定长，1一字节长度，2二字节长度
-   short max_len;  //上行 数据最大长度(压缩前)，0为无最大长度
-   short d_max_len;  //下行 数据最大长度(压缩前)，0为无最大长度
-} field_define;
-//报文数据域定义存储结构
-typedef struct{
-	char msg_type[5]; // 报文种类标识
-	short use_num;   //  被定义的字段域个数
-	field_define *fld_def; //字段域定义区集合
-}message_define;
-/*
-typedef struct{
-	char msg_type[5]; // 报文种类标识
-	short use_num;   //  被定义的字段域个数
-	field_define fld_def[150]; //字段域定义区集合
-}message_define;
-*/
-typedef struct{
-
-	int num;
-	message_define *priv_def;
-}GLOB_DEF;
-/*
-typedef struct{
-
-	int num;
-	message_define priv_def[100];
-}GLOB_DEF;
-*/
-// 字段域数据解析存储结构
-typedef struct{
-	short field_id; //字段域在本系统中定义的标识符
-	char  msg_type[5]; //消息类型
-	char  control_info[5]; //第一个字节为0则无控制信息
-	short len;      //数据存放的长度
-	char *data_addr; //数据存放的起始地址	
-	unsigned char Off; //数据有效标识 0无效，1有效
-	unsigned char from; //数据来源 0，接收机构，1中心产生，2，数据库中
-}field_data;
-
-typedef struct{
-	short field_id;
-	short from;
-	short indx;
-}FIELD_INDX;
-typedef struct{
-  short num;   //报文数据域定义的个数
-  FIELD_INDX field_indx[MAX_FIELD];
-  char field_name[MAX_FIELD][64];
-}field_set;
-typedef struct glob_msg_stru
-{
-	char *src_buffer;
-	short  src_len;
-	short req_flag; //1为请求交易，其他为应答交易
-	short switch_src_flag; // 1为转接到原受理机构，其他为转接到其他目的机构
-	char insti_code[12];    //发送报文的机构代码
-	char insti_fold_name[40];//发送报文通信用的fold名字
-	char insti_open_flag;  //发送机构打开标识,0关闭,1打开
-	char insti_link_type;  //发送机构链路标识，0,长连接 1,短连接
-	char insti_work_type;  //发送机构交易接入模式 0,机构 ,1 终端
-	message_define *in_priv_def;    //进入报文种类数据域定义指针
-	char in_msg_type[5]; //进入报文的报文类型
-	char in_mastkey[33];
-	char in_mac_index[6];
-	char in_mac_key[33];
-	char in_pin_index[6];
-	char in_pin_key[33];
-	char in_data_index[6];
-	char in_data_key[33];
-	char is_check_mac;//是否校验mac
-	char in_msg_key[60]; //报文关键字
-	char app_type[5]; //业务类型
-	char in_trans_type[5];//进入交易类型
-	char open_flag[2];//业务打开标识 0关闭，1打开
-	char is_route;//是否路由 0：转发初始接入点，1：业务下一路由节点，2：处理结束,3:原始交易路由节点
-	int  route_num; //交易被路由的次数
-	char step_type; // 1 支付渠道，2业务渠道
-	char route_insti_code[12];// 路由机构代码
-	char route_fold_name[40];//路由报文通信用的fold名字
-	char route_is_check_mac;//是否校验mac
-	char route_insti_open_flag;//路由机构打开标识 0关闭,1打开
-	char route_insti_link_type;  //路由机构链路标识，0,长连接 1,短连接
-	char route_insti_work_type;  //路由机构交易接入模式 0,机构 ,1 终端
-	char route_msg_type[5];//路由转换的报文类型
-	char route_trans_type[5]; //路由转换的交易类型
-	message_define *route_priv_def;       //路由的报文种类数据域定义指针
-	
-	field_set route_set;//转发的报文数据域ID集合
-	char route_mastkey[33];
-	char route_mac_index[6];
-	char route_mac_key[33];
-	char route_pin_index[6];
-	char route_pin_key[33];
-	char route_data_index[6];
-	char route_data_key[33];
-	char center_result_code[5];//中心处理结果代码
-	char is_void;             //是否需要冲正处理 ,0不冲正，1需要
-	char permit_void;         // 应用是否许可受理方发起冲正
-	char use_timeout ;         //使用超时表标志
-	timeout_stru timeout_table;//超时表存放的数据
-	short pin_convert_field_id;//pin转换指示字段
-	short pin_data_field_id;//pin数据存放字段;
-	short in_filed_key_num; //关键域字段个数
-	short in_filed_key_field_id[5];//报文关键域字段组合
-	short msg_field_num; //报文域总数
-	short timeout;
-	field_data data_rec[MAX_FIELD]; //报文域数据解析
-	char tmp_order[5];         //特殊报文使用的指令表示区
-	unsigned char in_cry_flag; // 进入国密算法应用标识 默认0不应用，1应用
-	unsigned char out_cry_flag; //出去国密算法应用标识 默认0不应用，1应用
-	short off_set;         //buffer使用偏移量
-	char buffer[MAX_BUFFER]; //数据存放区
-}glob_msg_stru;
-
-struct unpack_func_def{
-	char *msg_type;
-	int (* priv_unpack)(const char *msg_type, message_define *priv_def,char *src_buf,int src_len,glob_msg_stru *pub_data_stru);
-};
-struct pack_func_def {
-	char *msg_type;
-	int (* priv_pack)(const char *msg_type, message_define *priv_def,glob_msg_stru *pub_data_stru,char *buf);
-};
-struct DEFAULT_PROC{
-	char *name;
-	int (* func)(glob_msg_stru *pub_data_stru);
-};
-struct DB_PROC{
-	char *name;
-	int (* func)(glob_msg_stru *pub_data_stru,int flag);
-};
-struct INSTI_CODE_PROC {
-	char *msg_type;
-	int (*func)(char *insti_code);
-};
-typedef struct{
-	char *handle;
-	int (* func)(char *para, short fldid, glob_msg_stru *pub_data_stru);
-	int (* func_ret)(char *para, short fldid, glob_msg_stru *pub_data_stru);
-}UPDATE_DB_DEF;
+#include "fdevent.h"
+#include "array.h"
 
 
-typedef struct{
-	char *handle;
-	int (* func)(char *para, short fldid, glob_msg_stru *pub_data_stru);
-}FLDSET_DEF;
-/*交易流水数据库基本结构*/
-/*
-1、交易受理端信息存储区
-2、中心处理信息存储区
-3、支付渠道信息存储区
-4、其他渠道信息存储区
-*/
-
-//数据库基本结构
-typedef struct
-{
-   char sys_date             [8 + 1];
-   char sys_time             [6 + 1];
-   char qs_date              [8 + 1];
-   char acq_insti_code       [11 + 1];
-   char pay_insti_code       [11 + 1];
-   char app_insti_code       [11 + 1];
-   char acq_msg_type         [4 + 1];
-   char acq_trans_type       [4 + 1];
-   char app_type             [4 + 1];
-   char pay_msg_type         [4 + 1];
-   char pay_trans_type       [4 + 1];
-   char app_msg_type         [4 + 1];
-   char app_trans_type       [4 + 1];
-   char resp_cd_app          [6 + 1];
-   char resp_cd_pay          [6 + 1];
-   char resp_cd_rcv          [6 + 1];
-   char pay_acct_no          [30 + 1];
-   char card_attr            [2 + 1];
-   char iss_insti_code       [11 + 1];
-   char amount_pay           [12 + 1];
-   char amount_real          [12 + 1];
-   char fee                  [12 + 1];
-   char acq_tra_no           [6 + 1];
-   char pay_tra_no           [6 + 1];
-   char app_tra_no           [6 + 1];
-   char acq_date             [8 + 1];
-   char acq_time             [6 + 1];
-   char pay_date             [8 + 1];
-   char pay_time             [6 + 1];
-   char app_date             [8 + 1];
-   char app_time             [6 + 1];
-   char acq_term_id1         [20 + 1];
-   char acq_term_id2         [20 + 1];
-   char pay_term_id1         [20 + 1];
-   char pay_term_id2         [20 + 1];
-   char app_term_id1         [20 + 1];
-   char app_term_id2         [20 + 1];
-   char acq_addition         [512 + 1];
-   char pay_addition         [512 + 1];
-   char app_addition         [512 + 1];
-   char sys_ref_no           [12 + 1];
-   char pos_entry_md_cd      [3 + 1];
-   char pos_cond_cd          [2 + 1];
-   char rcv_acct_no          [30 + 1];
-   char trans_curr_cd        [3 + 1];
-   char resp_cd_auth_id      [6 + 1];
-   char step                 [1 + 1];
-   char void_flag            [1 + 1];
-   char permit_void          [1 + 1];
-   char acq_cry_type         [1 + 1];
-   char acq_mac              [16 + 1];
-   char mcc                  [4+1];
-   char acq_proc_code        [6+1];
-   char pay_proc_code        [6+1];
-   char pay_msg_id           [4+1];
-   char merch_info           [80+1];
-}tl_trans_log_def;
+#define MAX_JOB 100
+/* fcgi_response_header contains ... */
+#define HTTP_STATUS         BV(0)
+#define HTTP_CONNECTION     BV(1)
+#define HTTP_CONTENT_LENGTH BV(2)
+#define HTTP_DATE           BV(3)
+#define HTTP_LOCATION       BV(4)
 
 typedef struct
 {
-    char *Str;
-    char *Val;
-    int Size;
-    int Flag; //0:表示直接存储，1:特殊存储
-}trans_log_handler_def;
-typedef struct{
-	unsigned char fieldLen;
-	unsigned char field[2 + 1];
-	unsigned char datalen;
-	unsigned char data[128 + 1];
-}TAG_def;
-typedef struct{
-	char *handle;
-	int (* func)(char *para, char *buf, int bufLen, char *mac, glob_msg_stru *pub_data_stru, int flag);
-}MAC_CALC_DEF;
-struct HEAD_PROC {
-	
-	 char *func_name;
-	 int (*func)(char * buf ,int start,int len);
-};
-typedef struct{
-	char *handle;
-	int (* func)(char *para,char* inst_code ,glob_msg_stru *pub_data_stru);
-}NOTIFY_DEF;
-typedef struct {
-	char term_id[17]; //终端编号
-	char type[2];     //计算方法
-	char begin_date[9]; // 开始日期
-	char end_date[9];   // 结束日期
-	char para[256+1];  //计算参数
-	char check_list[512+1]; //条件判断列表
-}DISCNT_INFO;
+    struct sockaddr_in addr;
+    int       fd;
+    int       fde_ndx;
+} server_socket;
+
+typedef struct
+{
+    server_socket ptr[5];
+
+//  size_t size;
+    size_t used;
+} server_socket_array;
+
+#define  FIRST   1
+#define  SECEND  2;
+
+typedef struct
+{
+
+    /* timestamps */
+    time_t read_idle_ts;
+    time_t close_timeout_ts;
+    time_t connection_start;
+    time_t request_start;
+//  struct timeval start_tv;
+    size_t request_count;        /* number of requests handled in this connection */
+    int fd;                      /* the FD for this connection */
+//  int fde_ndx;                 /* index for the fdevent-handler */
+//  int ndx;                     /* reverse mapping to server->connection[ndx] */
+    /* fd states */
+    int head_len;
+    int is_readable;
+    int is_writable;
+    int used;               /*使用标识 0, 未使用 1使用*/
+    int state;             /*状态 指示一次事务的数据是否已经收取完整，
+                            0，未开始，1正在接收中，2，完成数据接收 */
+    int type;            /*表示一次事务的数据长度格式类型 1、两字节标识长度
+                         2、四字节标识长度
+                         3、http协议标识的长度 */
+    int mode;            /* 表示socket是否应用socket还是监控新连接的socket*/
+    int msg_len;         /* 解析报文得到的包体长度 */
+    int data_len;        /*收到的真实数据长度 */
+    struct sockaddr_in dst_addr;
+    unsigned char buf[1024*16];
+
+} connection;
+
+typedef struct
+{
+    connection *ptr;
+    size_t size;
+} connections;
+
+typedef struct
+{
+    int port;
+    int type;
+    int timeout;
+} srv_socket;
+
+typedef struct
+{
+    srv_socket *srv_socks;
+    int srv_sock_cnt;  /*sock已分配位置*/
+    int used;    /* sock已使用位置  */
+    int shm_rows;    /*共享内存配置的记录最大数*/
+    char config_file_name[512];
+    char log_file_name[512];
+} config;
+
+typedef struct server
+{
+
+    config  cfg;
+    fdevents ev;
+    int dont_daemon;
+
+    int max_workers;
+    int max_fds;    /* max possible fds */
+    int cur_fds;    /* currently used fds */
+    size_t max_conns;
+    time_t startup_ts;
+    connections conns;
+    void *shm_ptr;
+    fdevent_handler_t event_handler;
+
+} server;
+/* 会话数据的组成以ndx+key组成
+   1、新会话以seqno作为散列的的方式确定该会话存放位置。
+   2、老会话以ndx作为查找该会话所在位置，并对该位置的可以进行比较以核准会话的合法性
+*/
+typedef struct session
+{
+    char ip[15+1];
+    char name[32+1];
+    char key[128+1];
+    char login_flag;   // 在客户端登录时先申请服务端产生的随机数用于
+//  对客户端输入的密码加密使用，本阶段缓冲区在密码验证阶段超时时间只有10秒，要求客户端在输入用户名和密码
+// 后先发起交互随机数指令，在使用登录指令
+    int  ndx;    /*索引号*/
+    int  used;   /*使用标记*/
+//  unsigned long seqno;  /*产生的顺序号*/
+//  unsigned int rand;   /*用于对顺序号进行混杂*/
+//  char     method ;         /*混杂方法  */
+    time_t build_time;
+    time_t last_time;
+    time_t idle_time;
+    char remark[512];
+} session;
+
+typedef struct shm_data
+{
+    int max_rows;
+    int sem_lock;
+    int last_ndx;
+    session ptr[1];
+} shm_data;
+
+typedef struct JOB
+{
+    int sock_id;
+    int fd;
+    int read_or_write; //读操作，还是写操作
+    time_t last_time;  //最后处理时间
+    long file_size;    //文件大小
+    long off_set;      //已传输文件内容偏移量
+    char file_name[128];
+    char file_path[256];
+    char file_head[64];
+    char cache_buf[90];
+    char remark[512];
+    int remark_len;
+    int (*begin_proc)(int sock_id,int fd,char  *file_name,char  *file_path,char *cache_buf,char *file_cache, char *remark,long *off_set, long *file_size,void *buf,int buf_len);
+    int (*every_proc)(int sock_id, char *file_name ,char *file_path, long off_set, char *remark);//每一次通信事务完成的应用处理
+    int (*end_proc)(int sock_id, char *file_name ,char *file_path, long off_set,char *remark);//通信全部完成后的应用处理
+    int (*error_proc)(int sock_id, char *file_name ,char *file_path, long off_set, char *remark);//处理中出错的应用处理
+} JOB;
+
+typedef struct JOB_LIST
+{
+    int num;
+    JOB workers[MAX_JOB];
+} JOB_LIST;
+
 #endif
+

@@ -1865,7 +1865,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
         cmd5_hexdigest(&md5, (unsigned char *)buf);
         */
 
-        if(strcmp(ctx->sign, buf_hex) != 0) {
+        if(strcasecmp(ctx->sign, buf_hex) != 0) {
             snprintf(err_msg, err_size, "Ç©ÃûÑéÖ¤Ê§°Ü");
             ret = -1;
             dcs_log(0, 0, "at %s(%s:%d) [%s] [%s]",__FUNCTION__,__FILE__,__LINE__,ctx->sign, buf_hex);

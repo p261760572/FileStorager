@@ -685,10 +685,10 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
     struct stat st;
 
     uri_to_path(hm, filepath, sizeof(filepath));
-    dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,filepath);
+    dcs_debug(0, 0, "at %s(%s:%d) [%s]", __FUNCTION__, __FILE__, __LINE__,filepath);
 
     if(stat(filepath, &st)) {
-        dcs_log(0, 0, "at %s(%s:%d) 404 Not Found,%s", __FUNCTION__, __FILE__, __LINE__,filepath);
+        dcs_log(0, 0, "at %s(%s:%d) 404 Not Found,%s,%s", __FUNCTION__, __FILE__, __LINE__,strerror(errno), filepath);
         return send_http_error(outbuf, outsize, 404, "Not Found");
     }
 
@@ -1166,6 +1166,7 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
 
         dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,hm.uri);
 
+		hm.query_string = NULL;
         if((p = strchr(hm.uri, '?')) != NULL) { //query_stringŒ Ã‚
             *p = '\0';
             hm.query_string = p + 1;
