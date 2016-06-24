@@ -657,7 +657,7 @@ void send_file2(int fd, int *flag, const char *path, long offset, long file_size
 
     memset(&job, 0, sizeof(job));
     job.off_set = offset;
-	job.file_size = file_size;
+    job.file_size = file_size;
     job.sock_id = fd;
     job.read_or_write = 1; // 0写 1读
 
@@ -706,13 +706,13 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
         }
     }
 
-	int64_t offset = 0, len = 0; 
-	int n = net_send_http_file2(&st, get_header(hm, "Range"), custom_headers, outbuf, outsize, &offset, &len);
+    int64_t offset = 0, len = 0;
+    int n = net_send_http_file2(&st, get_header(hm, "Range"), custom_headers, outbuf, outsize, &offset, &len);
 
 
-	dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__,n,outbuf);
+    dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__,n,outbuf);
 
-	/*
+    /*
     int status_code = 200;
     char *msg = "OK";
     int n = snprintf(outbuf, outsize,
@@ -721,11 +721,11 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
                      "Content-Length: %ld\r\n"
                      "%s"
                      "\r\n", status_code, msg, st.st_size, custom_headers);
-	*/    
+    */
 
-	if(len > 0) {
-    	send_file2(con->fd, flag, filepath, offset, offset + len);
-	}
+    if(len > 0) {
+        send_file2(con->fd, flag, filepath, offset, offset + len);
+    }
 
     return n;
 }
@@ -738,11 +738,28 @@ int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize,
         return captcha_handler(ctx, con, flag, outbuf, outsize);
     }
 
+    //取签名key
+
+    carray_t bind;
+
+    carray_init(&bind, NULL);
+    carray_append(&bind, (char *)hm->uri);
+
+    if(sql_execute(ctx->con, "begin download_file(:mobile,:login_pwd,:captcha); end;", &bind, NULL, NULL, err_msg, err_size) < 0) {
+        dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,err_msg);
+        oci_rollback(ctx->con);
+        db_errmsg_trans(err_msg, err_size);
+        json_object_object_add(response, "errcode", json_object_new_int(8));
+        json_object_object_add(response, "errmsg", json_object_new_string(err_msg));
+    }
+    carray_destory(&bind);
+
+
     return send_file(con, shm_ptr, flag, outbuf, outsize, hm);
 }
 
 int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {
-	char filepath[MAX_PATH_SIZE];
+    char filepath[MAX_PATH_SIZE];
     struct stat st;
 
     uri_to_path(hm, filepath, sizeof(filepath));
@@ -756,16 +773,16 @@ int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
     int status_code = 200;
     char *status_message = "OK";
 
-	int n = snprintf(outbuf, outsize,
-               "HTTP/1.1 %d %s\r\n"
-               "Accept-Ranges: bytes\r\n"
-               "Content-Type: application/octet-stream\r\n"
-               "Content-Length: %" INT64_FMT
-               "\r\n"
-               "\r\n",
-               status_code, status_message, st.st_size);
-	dcs_debug(0, 0, "at %s(%s:%d) %.*s", __FUNCTION__, __FILE__, __LINE__,n, outbuf);
-	return n;
+    int n = snprintf(outbuf, outsize,
+                     "HTTP/1.1 %d %s\r\n"
+                     "Accept-Ranges: bytes\r\n"
+                     "Content-Type: application/octet-stream\r\n"
+                     "Content-Length: %" INT64_FMT
+                     "\r\n"
+                     "\r\n",
+                     status_code, status_message, st.st_size);
+    dcs_debug(0, 0, "at %s(%s:%d) %.*s", __FUNCTION__, __FILE__, __LINE__,n, outbuf);
+    return n;
 }
 
 
@@ -927,7 +944,7 @@ int upload_success_caller(int sock_id, char *file_name ,char *file_path, long of
     json_object *request = ctx->user_data1;
     json_object *response = json_object_new_object();
 
-	dcs_debug(0, 0, "%s", json_object_to_json_string(request));
+    dcs_debug(0, 0, "%s", json_object_to_json_string(request));
 
     json_object_object_add(request, "url", json_object_new_string(filepath+strlen(document_root)));
 
@@ -1093,7 +1110,7 @@ int do_post(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
             json_object_put(request); //free
             json_object_put(response); //free
 
-			dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, n, outbuf);
+            dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, n, outbuf);
         }
     } else if(strstr(content_type, "multipart/form-data") != NULL) {
         ctx->user_data1 = json_object_new_object();
@@ -1146,7 +1163,7 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
         //dcs_debug(0, 0, "at %s(%s:%d) head_len=%d msg_len=%d data_len=%d", __FUNCTION__, __FILE__, __LINE__,
         //          con->head_len, con->msg_len, con->data_len);
 
-		dcs_debug(con->buf, con->data_len, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, con->data_len, con->buf);
+        dcs_debug(con->buf, con->data_len, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, con->data_len, con->buf);
 
         struct mg_request_info hm;
         int headers_len;
@@ -1166,7 +1183,7 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
 
         dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,hm.uri);
 
-		hm.query_string = NULL;
+        hm.query_string = NULL;
         if((p = strchr(hm.uri, '?')) != NULL) { //query_string问题
             *p = '\0';
             hm.query_string = p + 1;
@@ -1182,9 +1199,9 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
         ctx.shm = shm_ptr;
         ctx.session = NULL;
         cstr_copy(ctx.action, hm.uri, sizeof(ctx.action));
-		ctx.sign = get_header(&hm, "Content-MD5");
-		ctx.body = (char *)con->buf+headers_len;
-		ctx.body_len = con->data_len - headers_len;
+        ctx.sign = get_header(&hm, "Content-MD5");
+        ctx.body = (char *)con->buf+headers_len;
+        ctx.body_len = con->data_len - headers_len;
 
 
         //取session
@@ -1232,7 +1249,7 @@ int app_init(server *srv) {
     //char *path; //环境变量路径
     char db_pwd[256+1];
 
-	dcs_log(0, 0, "初始化中...");
+    dcs_log(0, 0, "初始化中...");
 
     if(signal(SIGUSR1, signal_handler) == SIG_ERR) {
         dcs_log(0, 0, "at %s(%s:%d) signal SIGUSR1 error", __FUNCTION__, __FILE__, __LINE__);

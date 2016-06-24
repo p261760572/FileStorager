@@ -40,22 +40,9 @@ extern "C"{
 
 struct session_attr_s
 {
-	char session_flag;
-	char captcha[6+1];
-	char img_captcha[6+1];
-	char userid[38+1];
-	char login_name[32+1];
-	char inst_id[8+1];
-	char user_level[1+1];
-	char login_type[1+1];
-	char province[2+1];
-	char city[2+1];
-	char district[2+1];
-	char attr1[11+1];
-	char attr2[11+1];
-	char attr3[11+1];
-	char attr4[11+1];
-	char attr5[11+1];
+	char attr1[50+1]; //设备序列号
+	char attr2[40+1]; //厂家
+	char attr3[40+1]; //型号
 };
 
 typedef struct session_attr_s session_attr_t;

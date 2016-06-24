@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -197,30 +198,12 @@ char *get_current_value(void *data, const char *name) {
         return NULL;
     } else {
         session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-        if(strcmp(name, "CurrentUserID") == 0) {
-            return attr->userid;
-        } else if(strcmp(name, "CurrentLoginName") == 0) {
-            return attr->login_name;
-        } else if(strcmp(name, "CurrentInstID") == 0) {
-            return attr->inst_id;
-        } else if(strcmp(name, "CurrentUserLevel") == 0) {
-            return attr->user_level;
-        } else if(strcmp(name, "CurrentProvince") == 0) {
-            return attr->province;
-        } else if(strcmp(name, "CurrentCity") == 0) {
-            return attr->city;
-        } else if(strcmp(name, "CurrentDistrict") == 0) {
-            return attr->district;
-        } else if(strcmp(name, "CurrentInstAttr1") == 0) {
+        if(strcmp(name, "CurrentAttr1") == 0) {
             return attr->attr1;
-        } else if(strcmp(name, "CurrentInstAttr2") == 0) {
+        } else if(strcmp(name, "CurrentAttr2") == 0) {
             return attr->attr2;
-        } else if(strcmp(name, "CurrentInstAttr3") == 0) {
+        } else if(strcmp(name, "CurrentAttr3") == 0) {
             return attr->attr3;
-        } else if(strcmp(name, "CurrentInstAttr4") == 0) {
-            return attr->attr4;
-        } else if(strcmp(name, "CurrentInstAttr5") == 0) {
-            return attr->attr5;
         }
     }
 
@@ -1529,86 +1512,6 @@ int module_add(fun_config_t *config, process_ctx_t *ctx, json_object *request, j
 }
 
 
-int module_change_password(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
-    int ret = 0;
-
-
-    session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-
-    char *userid = attr->userid;
-    const char *login_pwd = json_util_object_get_string(request, "login_pwd");
-    const char *new_login_pwd = json_util_object_get_string(request, "new_login_pwd");
-    const char *captcha = json_util_object_get_string(request, "captcha");
-
-    //验证
-    if(cstr_empty(captcha) || strcmp(attr->img_captcha, captcha) != 0) {
-        json_object_object_add(response, "errcode", json_object_new_int(8));
-        json_object_object_add(response, "errmsg", json_object_new_string("验证码错误"));
-        return -1;
-    } else if(cstr_empty(login_pwd) || cstr_empty(new_login_pwd)) {
-        json_object_object_add(response, "errcode", json_object_new_int(8));
-        json_object_object_add(response, "errmsg", json_object_new_string("用户名或密码不能为空"));
-        return -1;
-    } else if(strlen(login_pwd) != 32 || strlen(new_login_pwd) != 64) {
-        json_object_object_add(response, "errcode", json_object_new_int(8));
-        json_object_object_add(response, "errmsg", json_object_new_string("密码格式错误"));
-        return -1;
-    }
-
-
-    carray_t bind;
-    carray_init(&bind, NULL);
-    carray_append(&bind, userid);
-
-    if(sql_execute(ctx->con, "select login_pwd from userinfo where userid=:userid", &bind, select_fetch_row_handler, response, NULL, 0) < 0) {
-        ret = -1;
-    }
-
-    carray_destory(&bind);
-
-    if(ret == 0) {
-        const char *login_pwd2 = json_util_object_get_string(response, "login_pwd");
-
-        char buf[33];
-        md5(buf, login_pwd2, attr->img_captcha, 0);
-
-        if(strcmp(buf, login_pwd) != 0) {
-            json_object_object_add(response, "errcode", json_object_new_int(8));
-            json_object_object_add(response, "errmsg", json_object_new_string("原密码错误"));
-        } else {
-            //解密密码
-            unsigned char ciphertext[64];
-            unsigned char plaintext[32+1];
-            unsigned char key[32+1];
-
-            bzero(ciphertext, sizeof(ciphertext));
-            bzero(plaintext, sizeof(plaintext));
-            bzero(key, sizeof(key));
-
-            cbin_hex_to_bin((const unsigned char *)new_login_pwd, ciphertext, 64);
-            strncpy((char *)key, login_pwd2, sizeof(key));
-
-            int i;
-            for(i = 0; i < 32; i +=8) {
-                cdes_decrypt(ciphertext+i, plaintext+i, key+i);
-            }
-
-            carray_init(&bind, NULL);
-            carray_append(&bind, plaintext);
-            carray_append(&bind, userid);
-            if(sql_execute(ctx->con, "update userinfo set login_pwd=:login_pwd,reset_password_flag='1' where userid=:userid", &bind, NULL, NULL, NULL, 0) < 0) {
-                ret = -1;
-            }
-            carray_destory(&bind);
-        }
-    }
-
-    json_object_object_del(response, "login_pwd");
-
-    return ret;
-}
-
-
 
 int create_file(char *url, size_t url_size, char *prefix, char *suffix) {
     int fd = -1;
@@ -1828,7 +1731,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-	const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
+    const char *sign_sek_indx = json_util_object_get_string(request, params[0]);
     const char *sign_key = json_util_object_get_string(request, params[1]);
 
     if(cstr_empty(ctx->sign) || cstr_empty(ctx->body) || cstr_empty(sign_sek_indx) || cstr_empty(sign_key)) {
@@ -1838,7 +1741,7 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
     } else {
         char buf[33], buf_hex[33];
         int buf_len = 0;
-		char sign_key_data[24];
+        char sign_key_data[24];
 
         bzero(buf, sizeof(buf));
         bzero(buf_hex, sizeof(buf_hex));
@@ -1848,10 +1751,10 @@ int module_check_sign(fun_config_t *config, process_ctx_t *ctx, json_object *req
 
         bzero(return_code, sizeof(return_code));
 
-		bzero(sign_key_data, sizeof(sign_key_data));
-		cbin_hex_to_bin(sign_key, sign_key_data, strlen(sign_key));
+        bzero(sign_key_data, sizeof(sign_key_data));
+        cbin_hex_to_bin((const unsigned char *)sign_key, (unsigned char *)sign_key_data, strlen(sign_key));
 
-		dcs_log(0, 0, "at %s(%s:%d) [%d]",__FUNCTION__,__FILE__,__LINE__,ctx->body_len);
+        dcs_log(0, 0, "at %s(%s:%d) [%d]",__FUNCTION__,__FILE__,__LINE__,ctx->body_len);
 
         DES_TO_MD5(return_code, (char *)sign_sek_indx,(char *)sign_key_data, ctx->body_len, (char *)ctx->body, &buf_len, buf);
 
@@ -2053,7 +1956,7 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     bzero(encrypt_data, sizeof(encrypt_data));
     bzero(encrypt_hex, sizeof(encrypt_hex));
 
-	dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
+    dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
 
     DES_TO_RSA_KEY(return_code, (char *)sek_indx, (char *)term_key1, strlen(rsa_key)/2, rsa_key_bin, &encrypt_data_len, encrypt_data);
 
@@ -2061,7 +1964,7 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
     cstr_upper(encrypt_hex);
 
 
-	dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
+    dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,encrypt_hex);
 
     json_object_object_add(request, encrypt_key, json_object_new_string(encrypt_hex));
 
@@ -2356,6 +2259,63 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
 }
 
 
+int module_create_session(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+    int ret = 0;
+
+	char param_list[512+1];
+    char *params[10]; //注意大小
+    int params_len;
+	int seconds;
+	const char *sn;
+	const char *manufacturer;
+	const char *model;
+
+    cstr_copy(param_list, config->param_list, sizeof(param_list));
+    params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
+
+    if(params_len < 4) {
+        snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+	seconds = atoi(params[0]);
+	sn = json_util_object_get_string(request, params[1]);
+	manufacturer = json_util_object_get_string(request, params[2]);
+	model = json_util_object_get_string(request, params[3]);
+
+	if(cstr_empty(sn) || cstr_empty(manufacturer) || cstr_empty(model)) {
+		snprintf(err_msg, err_size, "设备序列号、厂商、设备型号不能为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+		return -1;
+	}
+
+    if(ctx->session == NULL) {
+        ctx->session = create_session(ctx->shm);
+        if(ctx->session == NULL) {
+            //return send_http_error(outbuf, outsize, 500, "create session fail");
+            json_object_object_add(response, "errcode", json_object_new_int(8));
+            json_object_object_add(response, "errmsg", json_object_new_string("创建会话失败"));
+            ret = -1;
+        } else {
+            bzero(ctx->session->remark, sizeof(ctx->session->remark));
+            ctx->session->login_flag = '1';
+            ctx->session->last_time = time(NULL);
+            ctx->session->idle_time= seconds;
+            gen_uuid((unsigned char *)ctx->session->key);
+            snprintf(ctx->headers, ctx->headers_size, "Set-Cookie: suid=%s; path=/; HttpOnly\r\n"
+                     "Set-Cookie: si=%d; path=/; HttpOnly\r\n",
+                     ctx->session->key, ctx->session->ndx);
+			
+			session_attr_t *attr = (session_attr_t *)ctx->session->remark;
+			cstr_copy(attr->attr1, sn, sizeof(attr->attr1));
+			cstr_copy(attr->attr2, manufacturer, sizeof(attr->attr2));
+			cstr_copy(attr->attr3, model, sizeof(attr->attr3));
+        }
+    }
+
+    return ret;
+}
 
 
 struct execute_module my_check_module[] = {
@@ -2377,7 +2337,6 @@ struct execute_module my_check_module[] = {
     {"batch_copy", &module_batch_copy},
     {"export_txt", &module_export_txt},
     {"export_xls", &module_export_xls},
-    {"change_password", &module_change_password},
     {"add", &module_add},
     {"check_sign", &module_check_sign},
     {"generate_tmk", &module_generate_tmk},
@@ -2387,6 +2346,7 @@ struct execute_module my_check_module[] = {
     {"batch_generate_para_file", &module_batch_generate_para_file},
     {"extract_column_array", &module_extract_column_array},
     {"batch_execute", &module_batch_execute},
+    {"create_session", &module_create_session},
     {NULL,NULL}
 };
 
@@ -2541,7 +2501,7 @@ int write_oper_log(process_ctx_t *ctx, char *err_msg, int flag) {
 
     carray_init(&bind, NULL);
     carray_append(&bind, ctx->log_id);
-    carray_append(&bind, attr->login_name);
+    carray_append(&bind, attr->attr1);
     carray_append(&bind, ctx->ip);
     carray_append(&bind, flag == 2 ? "1" : "0");
     carray_append(&bind, err_msg);
@@ -2665,54 +2625,6 @@ void process_handler(process_ctx_t *ctx, json_object *request, json_object *resp
     }
 }
 
-//有权限返回0,没有权限返回-1,没有重置密码返回1
-int check_function_acl(process_ctx_t *ctx) {
-    int ret, count = 0, rc = 0;
-    session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-    carray_t bind;
-
-    return 0;
-    //个人信息相关权限
-    if(strncmp(ctx->action, "/action/user/", 13) == 0) {
-        return 0;
-    }
-
-    //超级管理员
-    if(strncmp(ctx->action, "/action/admin/", 14) == 0 && strcmp(attr->userid, "0") == 0) {
-        return 0;
-    }
-
-#if 0
-    //测试
-    if(strncmp(ctx->action, "/action/admin/", 11) != 0 && strcmp(ctx->attr.userid, "0") != 0) {
-        return 0;
-    }
-#endif
-
-    carray_init(&bind, NULL);
-    carray_append(&bind, attr->userid);
-    ret = sql_execute(ctx->con, "select count(1) from userinfo a where userid = :userid and reset_password_flag = '1'", &bind, select_fetch_count_handler, &count, NULL, 0);
-    if(ret > 0 && count > 0) {
-        carray_append(&bind, ctx->action);
-        ret = sql_execute(ctx->con, "select count(1) from view_user_fun where userid = :userid and url = :url and rownum = 1", &bind, select_fetch_count_handler, &count, NULL, 0);
-    } else {
-        rc = 1; //没有重置密码
-    }
-
-    if(rc == 0) {
-        if(ret > 0 && count > 0) {
-            return 0;
-        } else {
-            rc = -1; //没有权限
-        }
-    }
-
-    carray_destory(&bind);
-
-    dcs_debug(0, 0, "at %s(%s:%d)", __FUNCTION__, __FILE__, __LINE__);
-    return rc;
-}
-
 const int gifsize;
 void captcha(unsigned char im[70*200], unsigned char l[6]);
 void makegif(unsigned char im[70*200], unsigned char gif[gifsize]);
@@ -2778,31 +2690,11 @@ int captcha_handler(process_ctx_t *ctx, connection *con, int *flag, char *outbuf
     return headers_len;
 }
 
-
-int check_session(process_ctx_t *ctx) {
-    return 0;
-    //会话检查
-    if(ctx->session == NULL) {
-        dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__, "无效会话");
-        return -1;
-    }
-
-    session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-
-    if(attr->session_flag != '1') {
-        dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__, "无效会话");
-        return -1;
-    }
-
-    //更新最后访问时间
-    ctx->session->last_time = time(NULL);
-
-    return 0;
-}
-
 void action_handler(process_ctx_t *ctx, json_object *request, json_object *response) {
     //dcs_debug(0, 0, "at %s(%s:%d) ctx[%p]",__FUNCTION__, __FILE__, __LINE__, ctx);
+#if 0
     int ret;
+
     if(check_session(ctx) != 0) {
         json_object_object_add(response, "errcode", json_object_new_int(-11));
         json_object_object_add(response, "errmsg", json_object_new_string("非法会话,请重新登录"));
@@ -2818,8 +2710,11 @@ void action_handler(process_ctx_t *ctx, json_object *request, json_object *respo
             json_object_object_add(response, "errmsg", json_object_new_string("没有功能权限"));
         } else {
             //ctx->request = request;
+#endif
             process_handler(ctx, request, response);
+#if 0
         }
     }
+#endif
 }
 
