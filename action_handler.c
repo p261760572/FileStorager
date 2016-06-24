@@ -1512,6 +1512,23 @@ int module_add(fun_config_t *config, process_ctx_t *ctx, json_object *request, j
 }
 
 
+int module_del(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
+    int ret = 0, i;
+    char param_list[512+1];
+    char *params[10];
+    int params_len;
+
+    cstr_copy(param_list, config->param_list, sizeof(param_list));
+    params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
+
+    for(i = 0; i < params_len; i +=1) {
+		json_object_put(json_util_object_get(request, params[i]));
+    }
+
+    return ret;
+}
+
+
 
 int create_file(char *url, size_t url_size, char *prefix, char *suffix) {
     int fd = -1;
@@ -1974,13 +1991,13 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
 int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
     int ret = 0;
     char param_list[512+1];
-    char *params[8];
+    char *params[10];
     int params_len;
 
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-    if(params_len < 4) {
+    if(params_len < 5) {
         snprintf(err_msg, err_size, "%sÄ£¿é²ÎÊýÅäÖÃ´íÎó", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
@@ -1999,11 +2016,13 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     const char *term_id = json_util_object_get_string(request, params[2]);
     const char *psam_no = json_util_object_get_string(request, params[3]);
     const char *new_file_path = params[4];
+	const char *file_name = json_util_object_get_string(request, params[5]);
 
 
 
     char source_path[CFILE_MAX_PATH];
     char dest_path[CFILE_MAX_PATH];
+	char file_url[CFILE_MAX_PATH];
     char today[20];
     unsigned char uuid_buf[33];
     char *suffix;
@@ -2123,7 +2142,9 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 xgd_para_destroy(&xgd);
             }
 
-            json_object_object_add(request, new_file_path, json_object_new_string(dest_path+strlen(document_root)));
+			snprintf(file_url, sizeof(file_url), "%s?filename=%s", dest_path+strlen(document_root), file_name);
+
+            json_object_object_add(request, new_file_path, json_object_new_string(file_url));
         }
 
         if(fw != NULL) {
@@ -2347,6 +2368,7 @@ struct execute_module my_check_module[] = {
     {"extract_column_array", &module_extract_column_array},
     {"batch_execute", &module_batch_execute},
     {"create_session", &module_create_session},
+	{"del", &module_del},
     {NULL,NULL}
 };
 

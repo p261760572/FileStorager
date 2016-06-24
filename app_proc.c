@@ -739,7 +739,7 @@ int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize,
     }
 
     //È¡Ç©Ãûkey
-
+	#if 0
     carray_t bind;
 
     carray_init(&bind, NULL);
@@ -753,7 +753,7 @@ int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize,
         json_object_object_add(response, "errmsg", json_object_new_string(err_msg));
     }
     carray_destory(&bind);
-
+	#endif
 
     return send_file(con, shm_ptr, flag, outbuf, outsize, hm);
 }
