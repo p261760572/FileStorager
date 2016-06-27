@@ -692,7 +692,7 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
         return send_http_error(outbuf, outsize, 404, "Not Found");
     }
 
-    char custom_headers[100];
+    char custom_headers[200];
 
     bzero(custom_headers, sizeof(custom_headers));
 
