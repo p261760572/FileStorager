@@ -824,7 +824,7 @@ int DES_TO_RSA_KEY(char *return_code, char *sek_index, char *key, int rsa_length
 
 /*
 DES_TO_MD5：
- 密钥原来由DES算法保护，通过此函数获得明文再与数据合并做MD5算法，并输出MD5结果
+ 对输入的数据做MD5摘要，再用密钥对摘要做加密保护
 */
 int DES_TO_MD5(char *return_code, char *sek_index, char *key, int in_length, char *in_data, int *out_length, char *out_data) {
 	char buffer[1024];
@@ -882,76 +882,60 @@ int DES_TO_MD5(char *return_code, char *sek_index, char *key, int in_length, cha
     return 1;
 }
 
-#if 0
-
-
 /*
-DES_TO_RSA_KEY :
-密钥原来由DES算法加密保护，通过此函数转换为RSA算法加密并输出加密结果。
-
+DES_TO_MD5：
+ 对输入的数据做MD5摘要，再用密钥对摘要做加密保护
 */
-
-int DES_TO_RSA_KEY2(char *return_code, char *sek_index, char *key, int rsa_length, char *rsa_key, int *out_length, char *out_data) {
-    char buffer[1024];
+int DES3(char *return_code, char *sek_index, char *key, int in_length, char *in_data, int *out_length, char *out_data) {
+	char buffer[1024];
     int   nLen ;
 
     nLen=2;
     //指令
-    memcpy(buffer+2,"\xc0\x54",2);
-    nLen +=2;
+    memcpy(buffer+nLen,"\x71",1);
+    nLen +=1;
 
-    nLen +=8;; //保留字
-
-    //转加密方式
-    buffer[nLen++]=0x00;
-
-    //主密钥索引
+    //密钥索引
     buffer[nLen++]=atoi(sek_index)/256;
     buffer[nLen++]=atoi(sek_index)%256;
 
-    //key 长度
-    buffer[nLen++]=16;
-    //key
-    asc_to_bcd(buffer+nLen,key,32,0);
-    nLen +=16;
+	//密钥密文
+	memcpy(buffer+nLen,key,16);
+	nLen += 16;
 
-    //DATA长度
-    buffer[nLen++]=0/256;
-    buffer[nLen++]=0%256;
-    //DATA
+	//初始向量
+	memset(buffer+nLen,0,8);
+	nLen += 8;
 
-    //公钥索引(由外部输入)
-    buffer[nLen++]=0xff;
-    buffer[nLen++]=0xff;
+	//加/解密标识
+	buffer[nLen++]= 1;
 
-    //填充方式 RSA_NO_PADDING
-    buffer[nLen++]=0x00;
+	//算法标识
+	buffer[nLen++]= 0x00;
 
-    //输入公钥格式
-    buffer[nLen++]=0x10;
+	//数据长度
+	buffer[nLen++]=in_length/256;
+    buffer[nLen++]=in_length%256;
 
-    //公钥长度
-    buffer[nLen++]=rsa_length/256;
-    buffer[nLen++]=rsa_length%256;
-
-    //公钥
-    memcpy(buffer+nLen,rsa_key,rsa_length);
-    nLen += rsa_length;
-
+	//数据
+	memcpy(buffer+nLen,in_data,in_length);
+	nLen += in_length;
+	
     buffer[0]=(nLen-2)/256;
     buffer[1]=(nLen-2)%256;
+	
     if(0>CommandProc(buffer,nLen,buffer,&nLen, SM4_TYPE)) {
-        dcs_log(0,0,"ZMK加密转RSA KEY加密 通信失败!");
+        dcs_log(0,0,"数据加密 通信失败!");
         return -1;
     }
     if(memcmp(buffer,"A",1)!=0) {
         sprintf(return_code,"%02x",buffer[1+8]);
-        dcs_log(buffer,nLen,"ZMK加密转RSA KEY加密失败!");
+        dcs_log(buffer,nLen,"摘要算法加密失败!");
         return -1;
     }
-    *out_length=buffer[1+8]*256+buffer[1+8+1];
-    memcpy(out_data,buffer+1+8+2,*out_length);
+	*out_length=(unsigned char)buffer[1]*256+(unsigned char)buffer[1+1];
+    memcpy(out_data,buffer+3,*out_length);
     memcpy(return_code,"00",2);
     return 1;
 }
-#endif
+

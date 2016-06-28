@@ -2712,6 +2712,22 @@ int captcha_handler(process_ctx_t *ctx, connection *con, int *flag, char *outbuf
     return headers_len;
 }
 
+int check_session(process_ctx_t *ctx) {
+    //会话检查
+    if(ctx->session == NULL) {
+        dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__, "无效会话");
+        return -1;
+    }
+
+    session_attr_t *attr = (session_attr_t *)ctx->session->remark;
+
+    //更新最后访问时间
+    ctx->session->last_time = time(NULL);
+
+    return 0;
+}
+
+
 void action_handler(process_ctx_t *ctx, json_object *request, json_object *response) {
     //dcs_debug(0, 0, "at %s(%s:%d) ctx[%p]",__FUNCTION__, __FILE__, __LINE__, ctx);
 #if 0

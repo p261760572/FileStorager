@@ -17,6 +17,7 @@
 #include "base.h"
 #include "http_parse.h"
 #include "frame.h"
+#include "secuLib_wst.h"
 
 #include "json.h"
 #include "json_ext.h"
@@ -26,6 +27,7 @@
 #include "ciconv.h"
 #include "cbin.h"
 #include "cdes.h"
+#include "cmd5.h"
 
 #include "ocilib.h"
 #include "sql.h"
@@ -680,7 +682,7 @@ void send_file2(int fd, int *flag, const char *path, long offset, long file_size
     *flag = 1;
 }
 
-int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm) {
+int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {
     char filepath[MAX_PATH_SIZE];
     struct stat st;
 
@@ -692,9 +694,85 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
         return send_http_error(outbuf, outsize, 404, "Not Found");
     }
 
-    char custom_headers[200];
+	char custom_headers[200];
+	int headers_offset = 0;
+	bzero(custom_headers, sizeof(custom_headers));
+	
+    //计算文件MD5
+    {
+        session_attr_t *attr = (session_attr_t *)ctx->session->remark;
 
-    bzero(custom_headers, sizeof(custom_headers));
+        //取签名key
+        int n = 0;
+
+        char err_msg[MAX_ERR_MSG_SIZE];
+        size_t err_size = sizeof(err_msg);
+
+        char sign_sek_indx[5+1];
+        char sign_key[256+1];
+
+        bzero(err_msg, sizeof(err_msg));
+
+        memset(sign_sek_indx, ' ', sizeof(sign_sek_indx));
+        sign_sek_indx[sizeof(sign_sek_indx)-1] = '\0';
+
+        memset(sign_key, ' ', sizeof(sign_key));
+        sign_key[sizeof(sign_key)-1] = '\0';
+
+        carray_t bind;
+        carray_init(&bind, NULL);
+        carray_append(&bind, attr->attr1);
+        carray_append(&bind, attr->attr2);
+        carray_append(&bind, attr->attr3);
+        carray_append(&bind, sign_sek_indx);
+        carray_append(&bind, sign_key);
+
+        if(sql_execute(ctx->con, "begin get_sign_key(:sn,:manufacturer,:model,:sign_sek_indx,:sign_key); end;", &bind, NULL, NULL, err_msg, err_size) < 0) {
+            dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,err_msg);
+            oci_rollback(ctx->con);
+            db_errmsg_trans(err_msg, err_size);
+            n = send_http_error(outbuf, outsize, 500, err_msg);
+        }
+
+        carray_destory(&bind);
+
+        if(n > 0) {
+            return n;
+        }
+
+        cstr_rtrim(sign_sek_indx);
+        cstr_rtrim(sign_key);
+
+        char buf[MAX_BUFFER_SIZE];
+        size_t nread;
+        FILE *fp = fopen(filepath, "r");
+
+        cmd5_ctx_t md5;
+        cmd5_init(&md5);
+        while((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
+            cmd5_update(&md5, (unsigned char *)buf, nread);
+        }
+        cmd5_digest(&md5, (unsigned char *)buf);
+
+		dcs_log(buf, 16, "md5[%s]", filepath);
+
+        char return_code[4];
+
+        char sign_key_data[16];
+        char ciphertext[16];
+        int ciphertext_len;
+		char ciphertext_hex[33];
+
+        cbin_hex_to_bin((unsigned char *)sign_key, (unsigned char *)sign_key_data, strlen(sign_key));
+
+        DES3(return_code, sign_sek_indx, sign_key_data, 16, buf, &ciphertext_len, ciphertext);
+		dcs_log(ciphertext, 16, "ciphertext");
+
+		bzero(ciphertext_hex, sizeof(ciphertext_hex));
+		cbin_bin_to_hex(ciphertext, ciphertext_hex, 16);
+
+		headers_offset += snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-MD5: %s\r\n", ciphertext_hex);
+    }
 
     if(!cstr_empty(hm->query_string)) {
         http_pairs_t query;
@@ -702,7 +780,7 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
         net_str_t *filename = net_get_http_query_string(&query, "filename");
 
         if(filename != NULL) {
-            snprintf(custom_headers, sizeof(custom_headers), "Content-Disposition: attachment; filename=%.*s\r\n", (int)filename->len, filename->p);
+            snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-Disposition: attachment; filename=%.*s\r\n", (int)filename->len, filename->p);
         }
     }
 
@@ -738,24 +816,12 @@ int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize,
         return captcha_handler(ctx, con, flag, outbuf, outsize);
     }
 
-    //取签名key
-	#if 0
-    carray_t bind;
-
-    carray_init(&bind, NULL);
-    carray_append(&bind, (char *)hm->uri);
-
-    if(sql_execute(ctx->con, "begin download_file(:mobile,:login_pwd,:captcha); end;", &bind, NULL, NULL, err_msg, err_size) < 0) {
-        dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,err_msg);
-        oci_rollback(ctx->con);
-        db_errmsg_trans(err_msg, err_size);
-        json_object_object_add(response, "errcode", json_object_new_int(8));
-        json_object_object_add(response, "errmsg", json_object_new_string(err_msg));
+    if(check_session(ctx) != 0) {
+        //error
+        return send_http_error(outbuf, outsize, 500, "非法会话");
     }
-    carray_destory(&bind);
-	#endif
 
-    return send_file(con, shm_ptr, flag, outbuf, outsize, hm);
+    return send_file(con, shm_ptr, flag, outbuf, outsize, hm, ctx);
 }
 
 int do_head(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {

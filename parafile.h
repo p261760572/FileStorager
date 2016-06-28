@@ -21,9 +21,9 @@ extern "C"{
 #endif /* __cplusplus */
 
 
-#define MAX_NEWLAND_OPTIONS_SIZE 128
-#define MAX_PAX_OPTIONS_SIZE 128
-#define MAX_XGD_OPTIONS_SIZE 128
+#define MAX_NEWLAND_OPTIONS_SIZE 256
+#define MAX_PAX_OPTIONS_SIZE 256
+#define MAX_XGD_OPTIONS_SIZE 256
 
 
 struct para_str_s {
