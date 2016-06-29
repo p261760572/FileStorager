@@ -1949,13 +1949,13 @@ int module_rsa_pk_encrypt(fun_config_t *config, process_ctx_t *ctx, json_object 
 
     dcs_log(0, 0, "%s", json_object_to_json_string(request));
 
-    if(term_key1 == NULL) {
+    if(cstr_empty(term_key1)) {
         snprintf(err_msg, err_size, "%s终端应用密钥为空", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
 
-    if(rsa_key == NULL) {
+    if(cstr_empty(rsa_key)) {
         snprintf(err_msg, err_size, "%s公钥为空", config->module_name);
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
@@ -2092,7 +2092,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 }
 
                 if(!cstr_empty(psam_no)) {
-                    update_pax_para(&pax, "PSAM", psam_no);;
+                    update_pax_para(&pax, "安全号", psam_no);;
                 }
 
                 pax_para_to_file(&pax, fw);
