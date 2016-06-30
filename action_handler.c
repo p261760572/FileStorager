@@ -2158,6 +2158,9 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                                 break;
                             }
 
+
+							dcs_log(0, 0, "xjb[%s][%s]", name[0], name[1]);
+
                             if(strcmp(para_value, "${PSAM}") == 0) {
                                 ini_set(parser, name[0], name[1], psam_no);
                             } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
