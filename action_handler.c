@@ -1522,7 +1522,7 @@ int module_del(fun_config_t *config, process_ctx_t *ctx, json_object *request, j
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
     for(i = 0; i < params_len; i +=1) {
-		json_object_put(json_util_object_get(request, params[i]));
+        json_object_put(json_util_object_get(request, params[i]));
     }
 
     return ret;
@@ -1997,16 +1997,8 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
 
-    if(params_len < 5) {
+    if(params_len < 6) {
         snprintf(err_msg, err_size, "%s模块参数配置错误", config->module_name);
-        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
-        return -1;
-    }
-
-    const char *manufacturer = json_util_object_get_string(request, "manufacturer");
-
-    if(cstr_empty(manufacturer)) {
-        snprintf(err_msg, err_size, "manufacturer为空");
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
     }
@@ -2016,13 +2008,42 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     const char *term_id = json_util_object_get_string(request, params[2]);
     const char *psam_no = json_util_object_get_string(request, params[3]);
     const char *new_file_path = params[4];
-	const char *file_name = json_util_object_get_string(request, params[5]);
+    const char *file_name = json_util_object_get_string(request, params[5]);
+    const char *para_sql_id = params[6];
 
+    const char *manufacturer = json_util_object_get_string(request, "manufacturer");
 
+    if(cstr_empty(manufacturer)) {
+        snprintf(err_msg, err_size, "manufacturer为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+	psam_no	 = (psam_no == NULL) ? "" : psam_no;
+	mchnt_cd = (mchnt_cd == NULL) ? "" : mchnt_cd;
+	term_id	 = (term_id == NULL) ? "" : term_id;
+
+    //查询定制参数
+    {
+        fun_config_t temp_config;
+        bzero(&temp_config, sizeof(temp_config));
+        cstr_copy(temp_config.module_name, "select_list", sizeof(temp_config.module_name));
+        snprintf(temp_config.param_list, sizeof(temp_config.param_list), "%s,request.para", para_sql_id);
+
+		dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
+		dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(response));
+
+        ret = execute_config(&temp_config, ctx, request, response, err_msg, err_size);
+        if(ret != 0) {
+            return ret;
+        }
+    }
+
+    json_object *para = json_util_object_get(request, "para");
 
     char source_path[CFILE_MAX_PATH];
     char dest_path[CFILE_MAX_PATH];
-	char file_url[CFILE_MAX_PATH];
+    char file_url[CFILE_MAX_PATH];
     char today[20];
     unsigned char uuid_buf[33];
     char *suffix;
@@ -2043,7 +2064,6 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         ret = -1;
     } else {
         close(fd);
-
 
         if((fw = fopen(dest_path, "wb")) == NULL) {
             snprintf(err_msg, err_size, "打开文件失败");
@@ -2086,13 +2106,24 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 pax_para_init(&pax);
                 parse_pax_para(buf, n, &pax);
 
-                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                    update_pax_para(&pax, "终端号", term_id);
-                    update_pax_para(&pax, "商户号", mchnt_cd);
-                }
+                {
+                    int i;
+                    int len = json_object_array_length(para);
+                    for(i = 0; i < len; i++) {
+                        json_object *row = json_object_array_get_idx(para, i);
+                        const char *para_name = json_util_object_get_string(row, "para_name");
+                        const char *para_value = json_util_object_get_string(row, "para_value");
 
-                if(!cstr_empty(psam_no)) {
-                    update_pax_para(&pax, "安全号", psam_no);;
+                        if(strcmp(para_value, "${PSAM}") == 0) {
+                            update_pax_para(&pax, para_name, psam_no);
+                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                            update_pax_para(&pax, para_name, mchnt_cd);
+                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                            update_pax_para(&pax, para_name, term_id);
+                        } else {
+                            update_pax_para(&pax, para_name, para_value == NULL ? "" : para_value);
+                        }
+                    }
                 }
 
                 pax_para_to_file(&pax, fw);
@@ -2101,48 +2132,90 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
             }
 
             //新国都
-#if 0
-            if(strcmp(manufacturer, "XGD") == 0) {
-                ini_parser_t *parser = ini_parser_new('#', '=');
-
-                ini_parse(parser, buf);
-
-                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                    ini_set(parser, "TERMINAL", "terminal", term_id);
-                    ini_set(parser, "TERMINAL", "merchant", mchnt_cd);
-                }
-
-                if(!cstr_empty(psam_no)) {
-                    ini_set(parser, "TERMINAL", "psam", psam_no);
-                }
-
-                ini_to_file(parser, fw);
-
-                ini_parser_free(parser);
-            }
-#endif
 
             if(strcmp(manufacturer, "XGD") == 0) {
+                if(buf[0] == '[') {
 
-                xgd_para_t xgd;
-                xgd_para_init(&xgd);
-                parse_xgd_para(buf, &xgd);
+                    ini_parser_t *parser = ini_parser_new('#', '=');
 
-                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                    update_xgd_para(&xgd, "终端号", 0, 8, 8, term_id);
-                    update_xgd_para(&xgd, "商户号", 0, 15, 15, mchnt_cd);
+                    ini_parse(parser, buf);
+
+                    {
+                        int i;
+                        int len = json_object_array_length(para);
+                        for(i = 0; i < len; i++) {
+                            json_object *row = json_object_array_get_idx(para, i);
+                            const char *para_name = json_util_object_get_string(row, "para_name");
+                            const char *para_value = json_util_object_get_string(row, "para_value");
+
+                            char tmpbuf[100];
+                            bzero(tmpbuf, sizeof(tmpbuf));
+                            cstr_copy(tmpbuf, para_name, sizeof(tmpbuf));
+                            char *name[2];
+                            int name_len = cstr_split(tmpbuf, ".", name, ARRAY_SIZE(name));
+                            if(name_len != 2) {
+                                //error
+                                break;
+                            }
+
+                            if(strcmp(para_value, "${PSAM}") == 0) {
+                                ini_set(parser, name[0], name[1], psam_no);
+                            } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                                ini_set(parser, name[0], name[1], mchnt_cd);
+                            } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                                ini_set(parser, name[0], name[1], term_id);
+                            } else {
+                                ini_set(parser, name[0], name[1], para_value == NULL ? "" : para_value);
+                            }
+                        }
+                    }
+
+                    ini_to_file(parser, fw);
+
+                    ini_parser_free(parser);
+                } else {
+
+                    xgd_para_t xgd;
+                    xgd_para_init(&xgd);
+                    parse_xgd_para(buf, &xgd);
+
+                    {
+                        int i;
+                        int len = json_object_array_length(para);
+                        for(i = 0; i < len; i++) {
+                            json_object *row = json_object_array_get_idx(para, i);
+                            const char *para_name = json_util_object_get_string(row, "para_name");
+                            const char *para_value = json_util_object_get_string(row, "para_value");
+
+                            char tmpbuf[100];
+                            bzero(tmpbuf, sizeof(tmpbuf));
+                            cstr_copy(tmpbuf, para_name, sizeof(tmpbuf));
+                            char *name[4];
+                            int name_len = cstr_split(tmpbuf, ",", name, ARRAY_SIZE(name));
+                            if(name_len != 4) {
+                                //error
+                                break;
+                            }
+
+                            if(strcmp(para_value, "${PSAM}") == 0) {
+                                update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), psam_no);;
+                            } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                                update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), mchnt_cd);;
+                            } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                                update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), term_id);;
+                            } else {
+                                update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), para_value);
+                            }
+                        }
+                    }
+
+                    xgd_para_to_file(&xgd, fw);
+
+                    xgd_para_destroy(&xgd);
                 }
-
-                if(!cstr_empty(psam_no)) {
-                    update_xgd_para(&xgd, "PSAM", 0, 16, 16, psam_no);;
-                }
-
-                xgd_para_to_file(&xgd, fw);
-
-                xgd_para_destroy(&xgd);
             }
 
-			snprintf(file_url, sizeof(file_url), "%s?filename=%s", dest_path+strlen(document_root), file_name);
+            snprintf(file_url, sizeof(file_url), "%s?filename=%s", dest_path+strlen(document_root), file_name);
 
             json_object_object_add(request, new_file_path, json_object_new_string(file_url));
         }
@@ -2283,13 +2356,13 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
 int module_create_session(fun_config_t *config, process_ctx_t *ctx, json_object *request, json_object *response, char *err_msg, size_t err_size) {
     int ret = 0;
 
-	char param_list[512+1];
+    char param_list[512+1];
     char *params[10]; //注意大小
     int params_len;
-	int seconds;
-	const char *sn;
-	const char *manufacturer;
-	const char *model;
+    int seconds;
+    const char *sn;
+    const char *manufacturer;
+    const char *model;
 
     cstr_copy(param_list, config->param_list, sizeof(param_list));
     params_len = cstr_split(param_list, ",", params, ARRAY_SIZE(params));
@@ -2300,16 +2373,16 @@ int module_create_session(fun_config_t *config, process_ctx_t *ctx, json_object 
         return -1;
     }
 
-	seconds = atoi(params[0]);
-	sn = json_util_object_get_string(request, params[1]);
-	manufacturer = json_util_object_get_string(request, params[2]);
-	model = json_util_object_get_string(request, params[3]);
+    seconds = atoi(params[0]);
+    sn = json_util_object_get_string(request, params[1]);
+    manufacturer = json_util_object_get_string(request, params[2]);
+    model = json_util_object_get_string(request, params[3]);
 
-	if(cstr_empty(sn) || cstr_empty(manufacturer) || cstr_empty(model)) {
-		snprintf(err_msg, err_size, "设备序列号、厂商、设备型号不能为空");
+    if(cstr_empty(sn) || cstr_empty(manufacturer) || cstr_empty(model)) {
+        snprintf(err_msg, err_size, "设备序列号、厂商、设备型号不能为空");
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
-		return -1;
-	}
+        return -1;
+    }
 
     if(ctx->session == NULL) {
         ctx->session = create_session(ctx->shm);
@@ -2327,11 +2400,11 @@ int module_create_session(fun_config_t *config, process_ctx_t *ctx, json_object 
             snprintf(ctx->headers, ctx->headers_size, "Set-Cookie: suid=%s; path=/; HttpOnly\r\n"
                      "Set-Cookie: si=%d; path=/; HttpOnly\r\n",
                      ctx->session->key, ctx->session->ndx);
-			
-			session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-			cstr_copy(attr->attr1, sn, sizeof(attr->attr1));
-			cstr_copy(attr->attr2, manufacturer, sizeof(attr->attr2));
-			cstr_copy(attr->attr3, model, sizeof(attr->attr3));
+
+            session_attr_t *attr = (session_attr_t *)ctx->session->remark;
+            cstr_copy(attr->attr1, sn, sizeof(attr->attr1));
+            cstr_copy(attr->attr2, manufacturer, sizeof(attr->attr2));
+            cstr_copy(attr->attr3, model, sizeof(attr->attr3));
         }
     }
 
@@ -2368,7 +2441,7 @@ struct execute_module my_check_module[] = {
     {"extract_column_array", &module_extract_column_array},
     {"batch_execute", &module_batch_execute},
     {"create_session", &module_create_session},
-	{"del", &module_del},
+    {"del", &module_del},
     {NULL,NULL}
 };
 
