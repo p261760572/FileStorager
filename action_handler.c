@@ -60,6 +60,7 @@ struct fun_config_s {
     char exec_type[1+1];
     char input[32+1];
     char test[128+1];
+	char test_input[128+1];
 };
 
 typedef struct fun_config_s fun_config_t;
@@ -2234,6 +2235,15 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         //json_object_object_add(request, new_file_path, json_object_new_string(source_path+strlen(document_root)));
     }
 
+	//删除多余的
+	{
+		json_object_object_foreach(request, key, val) {
+			if(strcmp(key, new_file_path) != 0) {
+				json_object_object_del(request, key);
+			}
+		}
+	}
+
     return ret;
 }
 
@@ -2244,7 +2254,7 @@ int module_batch_generate_para_file(fun_config_t *config, process_ctx_t *ctx, js
     dcs_debug(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
 
     if(json_object_get_type(request) != json_type_array) {
-        ret = -1;
+        //ret = -1;
         snprintf(err_msg, err_size, "数据不是数组,不能进行批量操作");
         dcs_log(0, 0, "at %s(%s:%d) %.*s",__FUNCTION__,__FILE__,__LINE__,err_size,err_msg);
     } else {
@@ -2346,6 +2356,7 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
             memcpy(&temp_config, config, sizeof(temp_config));
             cstr_copy(temp_config.module_name, module_name, sizeof(temp_config.module_name));
             cstr_copy(temp_config.input, input_key, sizeof(temp_config.input));
+			cstr_copy(temp_config.test, config->test, sizeof(temp_config.test));
             cstr_copy(temp_config.param_list, sub_params, sizeof(temp_config.param_list));
 
             ret = execute_config(&temp_config, ctx, row, response, err_msg, err_size);
@@ -2468,12 +2479,15 @@ int execute_config(fun_config_t *config, process_ctx_t *ctx, json_object *reques
     int ret;
 
     if(fn) {
-        json_object *input = request;
-        if(!cstr_empty(config->input)) {
-            input = json_util_object_get(request, config->input);
-        }
+        //前提表达式检测
+	    if(fun_config_test_value(config->test_input, ctx, request)) {
+	        json_object *input = request;
+	        if(!cstr_empty(config->input)) {
+	            input = json_util_object_get(request, config->input);
+	        }
 
-        ret = fn(config, ctx, input, response, err_msg, err_size);
+	        ret = fn(config, ctx, input, response, err_msg, err_size);
+	    }
     } else {
         ret = -1;
         snprintf(err_msg, err_size, "配置错误,没有该模块,module_name=%s", config->module_name);
@@ -2504,7 +2518,7 @@ static int select_fetch_fun_config_handler(void *ctx, oci_resultset_t *rs, int r
     cstr_copy(config->exec_type, oci_get_string(rs, 4), sizeof(g_fun_config[0].exec_type));
     cstr_copy(config->input, oci_get_string(rs, 5), sizeof(g_fun_config[0].input));
     cstr_copy(config->test, oci_get_string(rs, 6), sizeof(g_fun_config[0].test));
-
+	cstr_copy(config->test_input, oci_get_string(rs, 7), sizeof(g_fun_config[0].test_input));
 
     return 1;
 }
@@ -2533,7 +2547,7 @@ int load_fun_config(oci_connection_t *con) {
     }
 
     if(res == 0) {
-        sql = "select url, module_name, param_list, exec_type, input, test from fun_config a order by url, exec_type, order_no";
+        sql = "select url, module_name, param_list, exec_type, input, test, test_input from fun_config a order by url, exec_type, order_no";
         if((g_fun_config_len = sql_execute(con, sql, NULL, select_fetch_fun_config_handler, NULL, NULL, 0)) < 0) {
             res = -1;
         }
