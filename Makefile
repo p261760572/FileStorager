@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -g -Wall -pthread -I$(ORACLE_HOME)/rdbms/public -Iinclude -Iinclude/cutil -Iinclude/json-c -Iinclude/exp -Iinclude/oci -Iinclude/sql -Iinclude/libxl -Iinclude/ini -I.
 LDFLAGS= -L$(ORACLE_HOME)/lib -Llib -Wl,-rpath,lib
-LIBS = -lframe -lini -lsql -loci -lexp -ljson-c -lclntsh -lcutil -luuid -lcaptcha -lxl -lfold
+LIBS = -lframe -lini -lsql -loci -lexp -ljson-c -lclntsh -lcutil -luuid -lcaptcha -lxl -lfold -lm
 
 ALL_SRCS = app_proc.c action_handler.c custom_handler.c gen_sql.c data_acl.c md5.c json_ext.c http_util.c secuLib_wst.c parafile.c 
 
