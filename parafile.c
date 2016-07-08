@@ -9,6 +9,8 @@
 #include "cstr.h"
 #include "parafile.h"
 
+#include "ibdcs.h"
+
 
 static void *memdup(void *src, size_t n) {
     void *dest = malloc(n);
@@ -248,32 +250,40 @@ void xgd_para_destroy(xgd_para_t *para) {
 int parse_xgd_para(char *buf, xgd_para_t *para) {
     
 	char *line[MAX_PAX_OPTIONS_SIZE+1], *p;
-	int n, i;
-	char key[1024], value[1024];
-    int value_type, value_min, value_max;
+	int n, i, num;
+	char key[1024], value[1024], value_type[100], value_min[100], value_max[100];
 	
 	n = cstr_split(buf, "\r\n", line, ARRAY_SIZE(line));
 	if(n > MAX_PAX_OPTIONS_SIZE) {
-		dcs_log(0, 0, "xjb");
 		return -1;
 	}
 
+	para->len = 0;
 	for(i = 0; i < n; i++) {
 		p = cstr_trim(line[i]);
-		if(sscanf(p, "%s,%d,%d,%d,%s", key, &value_type, &value_min, &value_max, value) != 5) {
-            xgd_para_destroy(para);
-			dcs_log(0, 0, "xjb");
-            return -1;
-        } else {
-            para->options[i].key = strdup(key);
-            para->options[i].value_type = value_type;
-            para->options[i].value_min = value_min;
-            para->options[i].value_max = value_max;
-            para->options[i].value = strdup(value);
-        }
+		if(!cstr_empty(p)) {
+			bzero(key, sizeof(key));
+			bzero(value, sizeof(value));
+			bzero(value_type, sizeof(value_type));
+			bzero(value_min, sizeof(value_min));
+			bzero(value_max, sizeof(value_max));
+			
+			num = sscanf(p, "%[^,],%[^,],%[^,],%[^,],%[^,]", key, value_type, value_min, value_max, value);
+			
+			if(num != 4 && num != 5) {
+	            xgd_para_destroy(para);
+				dcs_log(0, 0, "at %s(%s:%d) %d[%s]",__FUNCTION__,__FILE__,__LINE__,num, p);
+	            return -1;
+	        } else {
+	            para->options[para->len].key = strdup(key);
+	            para->options[para->len].value_type = atoi(value_type);
+	            para->options[para->len].value_min = atoi(value_min);
+	            para->options[para->len].value_max = atoi(value_max);
+	            para->options[para->len].value = strdup(value);
+				para->len ++;
+	        }
+		}
 	}
-
-	para->len = n;
 
     return 0;
 }
@@ -315,6 +325,9 @@ void xgd_para_to_file(xgd_para_t *para, FILE *fp) {
 }
 
 
+
+#if 0
+
 void print_xgd_para(xgd_para_t *para) {
     int i;
     //Ñ¡ÏîÄÚÈİ
@@ -325,9 +338,6 @@ void print_xgd_para(xgd_para_t *para) {
     }
 }
 
-
-
-#if 0
 
 void print_newland_para(newland_para_t *newland) {
     int i;

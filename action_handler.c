@@ -2178,13 +2178,9 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
                     ini_parser_free(parser);
                 } else {
-					dcs_log(0, 0, "xjb1");
                     xgd_para_t xgd;
                     xgd_para_init(&xgd);
-					dcs_log(0, 0, "%s", buf);
                     parse_xgd_para(buf, &xgd);
-					dcs_log(0, 0, "xjb2");
-					print_xgd_para(&xgd);
 
                     {
                         int i;
