@@ -254,6 +254,7 @@ int parse_xgd_para(char *buf, xgd_para_t *para) {
 	
 	n = cstr_split(buf, "\r\n", line, ARRAY_SIZE(line));
 	if(n > MAX_PAX_OPTIONS_SIZE) {
+		dcs_log(0, 0, "xjb");
 		return -1;
 	}
 
@@ -261,6 +262,7 @@ int parse_xgd_para(char *buf, xgd_para_t *para) {
 		p = cstr_trim(line[i]);
 		if(sscanf(p, "%s,%d,%d,%d,%s", key, &value_type, &value_min, &value_max, value) != 5) {
             xgd_para_destroy(para);
+			dcs_log(0, 0, "xjb");
             return -1;
         } else {
             para->options[i].key = strdup(key);
@@ -311,6 +313,18 @@ void xgd_para_to_file(xgd_para_t *para, FILE *fp) {
                 para->options[i].value_min, para->options[i].value_max, para->options[i].value);
     }
 }
+
+
+void print_xgd_para(xgd_para_t *para) {
+    int i;
+    //Ñ¡ÏîÄÚÈÝ
+    dcs_log(0,0, "xjb3 %d\n", para->len);
+    for(i = 0; i < para->len; i++) {
+        dcs_log(0, 0, "%s,%d,%d,%d,%s\n", para->options[i].key, para->options[i].value_type,
+                para->options[i].value_min, para->options[i].value_max, para->options[i].value);
+    }
+}
+
 
 
 #if 0
