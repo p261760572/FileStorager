@@ -1887,6 +1887,24 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     const char *sign_key = params[3];
     const char *sql_id = params[4];
 
+	if(cstr_empty(sek_indx)) {
+        snprintf(err_msg, err_size, "TMS主密钥索引为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+    if(cstr_empty(sign_sek_indx)) {
+        snprintf(err_msg, err_size, "签名密钥索引为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
+	if(cstr_empty(tmk_key1)) {
+        snprintf(err_msg, err_size, "TMS主密钥为空");
+        dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
+        return -1;
+    }
+
     char return_code[4];
     char sek_pikmak_data[100];
     char tmk_pikmak_data[100];
