@@ -2121,33 +2121,38 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
             //百富
             if(strcmp(manufacturer, "PAX") == 0) {
-                pax_para_t pax;
-                pax_para_init(&pax);
-                parse_pax_para(buf, n, &pax);
+				if(buf[0] == 0x1b) {
+					fwrite(buf, 1, n, fw);
+					//strcpy(dest_path, source_path);
+				} else {
+	                pax_para_t pax;
+	                pax_para_init(&pax);
+	                parse_pax_para(buf, n, &pax);
 
-                {
-                    int i;
-                    int len = json_object_array_length(para);
-                    for(i = 0; i < len; i++) {
-                        json_object *row = json_object_array_get_idx(para, i);
-                        const char *para_name = json_util_object_get_string(row, "para_name");
-                        const char *para_value = json_util_object_get_string(row, "para_value");
+	                {
+	                    int i;
+	                    int len = json_object_array_length(para);
+	                    for(i = 0; i < len; i++) {
+	                        json_object *row = json_object_array_get_idx(para, i);
+	                        const char *para_name = json_util_object_get_string(row, "para_name");
+	                        const char *para_value = json_util_object_get_string(row, "para_value");
 
-                        if(strcmp(para_value, "${PSAM}") == 0) {
-                            update_pax_para(&pax, para_name, psam_no);
-                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
-                            update_pax_para(&pax, para_name, mchnt_cd);
-                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
-                            update_pax_para(&pax, para_name, term_id);
-                        } else {
-                            update_pax_para(&pax, para_name, para_value == NULL ? "" : para_value);
-                        }
-                    }
-                }
+	                        if(strcmp(para_value, "${PSAM}") == 0) {
+	                            update_pax_para(&pax, para_name, psam_no);
+	                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+	                            update_pax_para(&pax, para_name, mchnt_cd);
+	                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+	                            update_pax_para(&pax, para_name, term_id);
+	                        } else {
+	                            update_pax_para(&pax, para_name, para_value == NULL ? "" : para_value);
+	                        }
+	                    }
+	                }
 
-                pax_para_to_file(&pax, fw);
+	                pax_para_to_file(&pax, fw);
 
-                pax_para_destroy(&pax);
+	                pax_para_destroy(&pax);
+				}
             }
 
             //新国都
