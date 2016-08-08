@@ -2023,12 +2023,13 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     }
 
     const char *file_path = json_util_object_get_string(request, params[0]);
-    const char *mchnt_cd = json_util_object_get_string(request, params[1]);
-    const char *term_id = json_util_object_get_string(request, params[2]);
-    const char *psam_no = json_util_object_get_string(request, params[3]);
-    const char *new_file_path = params[4];
-    const char *file_name = json_util_object_get_string(request, params[5]);
-    const char *para_sql_id = params[6];
+	const char *mchnt_nm = json_util_object_get_string(request, params[1]);
+	const char *mchnt_cd = json_util_object_get_string(request, params[2]);
+    const char *term_id = json_util_object_get_string(request, params[3]);
+    const char *psam_no = json_util_object_get_string(request, params[4]);
+    const char *new_file_path = params[5];
+    const char *file_name = json_util_object_get_string(request, params[6]);
+    const char *para_sql_id = params[7];
 
     const char *manufacturer = json_util_object_get_string(request, "manufacturer");
 
@@ -2038,6 +2039,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         return -1;
     }
 
+	mchnt_nm = (mchnt_nm == NULL) ? "" : mchnt_nm;
 	psam_no	 = (psam_no == NULL) ? "" : psam_no;
 	mchnt_cd = (mchnt_cd == NULL) ? "" : mchnt_cd;
 	term_id	 = (term_id == NULL) ? "" : term_id;
@@ -2137,10 +2139,14 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 	                        const char *para_name = json_util_object_get_string(row, "para_name");
 	                        const char *para_value = json_util_object_get_string(row, "para_value");
 
-	                        if(strcmp(para_value, "${PSAM}") == 0) {
+	                        if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+	                            update_pax_para(&pax, para_name, mchnt_nm);
+	                        } else if(strcmp(para_value, "${PSAM}") == 0) {
 	                            update_pax_para(&pax, para_name, psam_no);
 	                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
 	                            update_pax_para(&pax, para_name, mchnt_cd);
+	                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+	                            update_pax_para(&pax, para_name, term_id);
 	                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
 	                            update_pax_para(&pax, para_name, term_id);
 	                        } else {
@@ -2185,7 +2191,9 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
 							dcs_log(0, 0, "xjb[%s][%s]", name[0], name[1]);
 
-                            if(strcmp(para_value, "${PSAM}") == 0) {
+                            if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+                                ini_set(parser, name[0], name[1], mchnt_nm);
+                            } else if(strcmp(para_value, "${PSAM}") == 0) {
                                 ini_set(parser, name[0], name[1], psam_no);
                             } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
                                 ini_set(parser, name[0], name[1], mchnt_cd);
@@ -2223,7 +2231,9 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                                 break;
                             }
 
-                            if(strcmp(para_value, "${PSAM}") == 0) {
+                            if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+                                update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), mchnt_nm);;
+                            } else if(strcmp(para_value, "${PSAM}") == 0) {
                                 update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), psam_no);;
                             } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
                                 update_xgd_para(&xgd, name[0], atoi(name[1]), atoi(name[2]), atoi(name[3]), mchnt_cd);;
