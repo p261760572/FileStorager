@@ -319,7 +319,7 @@ void xgd_para_to_file(xgd_para_t *para, FILE *fp) {
     int i;
     //Ñ¡ÏîÄÚÈİ
     for(i = 0; i < para->len; i++) {
-        fprintf(fp, "%s,%d,%d,%d,%s\n", para->options[i].key, para->options[i].value_type,
+        fprintf(fp, "%s,%d,%d,%d,%s\r\n", para->options[i].key, para->options[i].value_type,
                 para->options[i].value_min, para->options[i].value_max, para->options[i].value);
     }
 }
