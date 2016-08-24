@@ -60,7 +60,7 @@ struct fun_config_s {
     char exec_type[1+1];
     char input[32+1];
     char test[128+1];
-	char test_input[128+1];
+    char test_input[128+1];
 };
 
 typedef struct fun_config_s fun_config_t;
@@ -1887,7 +1887,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     const char *sign_key = params[3];
     const char *sql_id = params[4];
 
-	if(cstr_empty(sek_indx)) {
+    if(cstr_empty(sek_indx)) {
         snprintf(err_msg, err_size, "TMS主密钥索引为空");
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
@@ -1899,7 +1899,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
         return -1;
     }
 
-	if(cstr_empty(tmk_key1)) {
+    if(cstr_empty(tmk_key1)) {
         snprintf(err_msg, err_size, "TMS主密钥为空");
         dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,err_msg);
         return -1;
@@ -2023,8 +2023,8 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
     }
 
     const char *file_path = json_util_object_get_string(request, params[0]);
-	const char *mchnt_nm = json_util_object_get_string(request, params[1]);
-	const char *mchnt_cd = json_util_object_get_string(request, params[2]);
+    const char *mchnt_nm = json_util_object_get_string(request, params[1]);
+    const char *mchnt_cd = json_util_object_get_string(request, params[2]);
     const char *term_id = json_util_object_get_string(request, params[3]);
     const char *psam_no = json_util_object_get_string(request, params[4]);
     const char *new_file_path = params[5];
@@ -2039,10 +2039,10 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         return -1;
     }
 
-	mchnt_nm = (mchnt_nm == NULL) ? "" : mchnt_nm;
-	psam_no	 = (psam_no == NULL) ? "" : psam_no;
-	mchnt_cd = (mchnt_cd == NULL) ? "" : mchnt_cd;
-	term_id	 = (term_id == NULL) ? "" : term_id;
+    mchnt_nm = (mchnt_nm == NULL) ? "" : mchnt_nm;
+    psam_no  = (psam_no == NULL) ? "" : psam_no;
+    mchnt_cd = (mchnt_cd == NULL) ? "" : mchnt_cd;
+    term_id  = (term_id == NULL) ? "" : term_id;
 
     //查询定制参数
     {
@@ -2051,8 +2051,8 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         cstr_copy(temp_config.module_name, "select_list", sizeof(temp_config.module_name));
         snprintf(temp_config.param_list, sizeof(temp_config.param_list), "%s,request.para", para_sql_id);
 
-		dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
-		dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(response));
+        dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(request));
+        dcs_log(0, 0, "at %s(%s:%d)\n%s",__FUNCTION__,__FILE__,__LINE__,json_object_to_json_string(response));
 
         ret = execute_config(&temp_config, ctx, request, response, err_msg, err_size);
         if(ret != 0) {
@@ -2103,62 +2103,108 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
 
             //新大陆
             if(strcmp(manufacturer, "NEWLAND") == 0) {
-                newland_para_t newland;
-                newland_para_init(&newland);
-                parse_newland_para(buf, n, &newland);
+                if(buf[0] == '[') {
 
-                if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
-                    update_newland_para(&newland, "01000005", term_id);
-                    update_newland_para(&newland, "01000001", mchnt_cd);
+                    ini_parser_t *parser = ini_parser_new('#', '=');
+
+                    ini_parse(parser, buf);
+
+                    {
+                        int i;
+                        int len = json_object_array_length(para);
+                        for(i = 0; i < len; i++) {
+                            json_object *row = json_object_array_get_idx(para, i);
+                            const char *para_name = json_util_object_get_string(row, "para_name");
+                            const char *para_value = json_util_object_get_string(row, "para_value");
+
+                            char tmpbuf[100];
+                            bzero(tmpbuf, sizeof(tmpbuf));
+                            cstr_copy(tmpbuf, para_name, sizeof(tmpbuf));
+                            char *name[2];
+                            int name_len = cstr_split(tmpbuf, ".", name, ARRAY_SIZE(name));
+                            if(name_len != 2) {
+                                //error
+                                break;
+                            }
+
+
+                            dcs_log(0, 0, "xjb[%s][%s]", name[0], name[1]);
+
+                            if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+                                ini_set(parser, name[0], name[1], mchnt_nm);
+                            } else if(strcmp(para_value, "${PSAM}") == 0) {
+                                ini_set(parser, name[0], name[1], psam_no);
+                            } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                                ini_set(parser, name[0], name[1], mchnt_cd);
+                            } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                                ini_set(parser, name[0], name[1], term_id);
+                            } else {
+                                ini_set(parser, name[0], name[1], para_value == NULL ? "" : para_value);
+                            }
+                        }
+                    }
+
+                    ini_to_file(parser, fw);
+
+                    ini_parser_free(parser);
+                } else {
+                    newland_para_t newland;
+                    newland_para_init(&newland);
+                    parse_newland_para(buf, n, &newland);
+
+                    if(!cstr_empty(mchnt_cd) && !cstr_empty(term_id)) {
+                        update_newland_para(&newland, "01000005", term_id);
+                        update_newland_para(&newland, "01000001", mchnt_cd);
+                    }
+
+                    if(!cstr_empty(psam_no)) {
+                        update_newland_para(&newland, "01000001", psam_no);;
+                    }
+
+                    newland_para_to_file(&newland, fw);
+
+                    newland_para_destroy(&newland);
                 }
-
-                if(!cstr_empty(psam_no)) {
-                    update_newland_para(&newland, "01000001", psam_no);;
-                }
-
-                newland_para_to_file(&newland, fw);
-
-                newland_para_destroy(&newland);
             }
 
             //百富
             if(strcmp(manufacturer, "PAX") == 0) {
-				if(buf[0] == 0x1b) {
-					fwrite(buf, 1, n, fw);
-					//strcpy(dest_path, source_path);
-				} else {
-	                pax_para_t pax;
-	                pax_para_init(&pax);
-	                parse_pax_para(buf, n, &pax);
+                if(buf[0] == 0x1b) {
+                    fwrite(buf, 1, n, fw);
+                    //strcpy(dest_path, source_path);
+                } else {
+                    pax_para_t pax;
+                    pax_para_init(&pax);
+                    parse_pax_para(buf, n, &pax);
 
-	                {
-	                    int i;
-	                    int len = json_object_array_length(para);
-	                    for(i = 0; i < len; i++) {
-	                        json_object *row = json_object_array_get_idx(para, i);
-	                        const char *para_name = json_util_object_get_string(row, "para_name");
-	                        const char *para_value = json_util_object_get_string(row, "para_value");
+                    {
+                        int i;
+                        int len = json_object_array_length(para);
+                        for(i = 0; i < len; i++) {
+                            json_object *row = json_object_array_get_idx(para, i);
+                            const char *para_name = json_util_object_get_string(row, "para_name");
+                            const char *para_value = json_util_object_get_string(row, "para_value");
 
-	                        if(strcmp(para_value, "${MCHNT_NM}") == 0) {
-	                            update_pax_para(&pax, para_name, mchnt_nm);
-	                        } else if(strcmp(para_value, "${PSAM}") == 0) {
-	                            update_pax_para(&pax, para_name, psam_no);
-	                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
-	                            update_pax_para(&pax, para_name, mchnt_cd);
-	                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
-	                            update_pax_para(&pax, para_name, term_id);
-	                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
-	                            update_pax_para(&pax, para_name, term_id);
-	                        } else {
-	                            update_pax_para(&pax, para_name, para_value == NULL ? "" : para_value);
-	                        }
-	                    }
-	                }
+                            if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+                                update_pax_para(&pax, para_name, mchnt_nm);
+                            } else if(strcmp(para_value, "${PSAM}") == 0) {
+                                update_pax_para(&pax, para_name, psam_no);
+                            } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                                update_pax_para(&pax, para_name, mchnt_cd);
+                            } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                                update_pax_para(&pax, para_name, term_id);
+                            } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                                update_pax_para(&pax, para_name, term_id);
+                            } else {
+                                update_pax_para(&pax, para_name, para_value == NULL ? "" : para_value);
+                            }
+                        }
+                    }
 
-	                pax_para_to_file(&pax, fw);
+                    pax_para_to_file(&pax, fw);
 
-	                pax_para_destroy(&pax);
-				}
+                    pax_para_destroy(&pax);
+                }
             }
 
             //新国都
@@ -2189,7 +2235,7 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                             }
 
 
-							dcs_log(0, 0, "xjb[%s][%s]", name[0], name[1]);
+                            dcs_log(0, 0, "xjb[%s][%s]", name[0], name[1]);
 
                             if(strcmp(para_value, "${MCHNT_NM}") == 0) {
                                 ini_set(parser, name[0], name[1], mchnt_nm);
@@ -2267,14 +2313,14 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
         //json_object_object_add(request, new_file_path, json_object_new_string(source_path+strlen(document_root)));
     }
 
-	//删除多余的
-	{
-		json_object_object_foreach(request, key, val) {
-			if(strcmp(key, new_file_path) != 0) {
-				json_object_object_del(request, key);
-			}
-		}
-	}
+    //删除多余的
+    {
+        json_object_object_foreach(request, key, val) {
+            if(strcmp(key, new_file_path) != 0) {
+                json_object_object_del(request, key);
+            }
+        }
+    }
 
     return ret;
 }
@@ -2388,7 +2434,7 @@ int module_batch_execute(fun_config_t *config, process_ctx_t *ctx, json_object *
             memcpy(&temp_config, config, sizeof(temp_config));
             cstr_copy(temp_config.module_name, module_name, sizeof(temp_config.module_name));
             cstr_copy(temp_config.input, input_key, sizeof(temp_config.input));
-			cstr_copy(temp_config.test, config->test, sizeof(temp_config.test));
+            cstr_copy(temp_config.test, config->test, sizeof(temp_config.test));
             cstr_copy(temp_config.param_list, sub_params, sizeof(temp_config.param_list));
 
             ret = execute_config(&temp_config, ctx, row, response, err_msg, err_size);
@@ -2512,14 +2558,14 @@ int execute_config(fun_config_t *config, process_ctx_t *ctx, json_object *reques
 
     if(fn) {
         //前提表达式检测
-	    if(fun_config_test_value(config->test_input, ctx, request)) {
-	        json_object *input = request;
-	        if(!cstr_empty(config->input)) {
-	            input = json_util_object_get(request, config->input);
-	        }
+        if(fun_config_test_value(config->test_input, ctx, request)) {
+            json_object *input = request;
+            if(!cstr_empty(config->input)) {
+                input = json_util_object_get(request, config->input);
+            }
 
-	        ret = fn(config, ctx, input, response, err_msg, err_size);
-	    }
+            ret = fn(config, ctx, input, response, err_msg, err_size);
+        }
     } else {
         ret = -1;
         snprintf(err_msg, err_size, "配置错误,没有该模块,module_name=%s", config->module_name);
@@ -2550,7 +2596,7 @@ static int select_fetch_fun_config_handler(void *ctx, oci_resultset_t *rs, int r
     cstr_copy(config->exec_type, oci_get_string(rs, 4), sizeof(g_fun_config[0].exec_type));
     cstr_copy(config->input, oci_get_string(rs, 5), sizeof(g_fun_config[0].input));
     cstr_copy(config->test, oci_get_string(rs, 6), sizeof(g_fun_config[0].test));
-	cstr_copy(config->test_input, oci_get_string(rs, 7), sizeof(g_fun_config[0].test_input));
+    cstr_copy(config->test_input, oci_get_string(rs, 7), sizeof(g_fun_config[0].test_input));
 
     return 1;
 }
