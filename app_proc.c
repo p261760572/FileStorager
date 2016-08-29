@@ -769,7 +769,7 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
 		dcs_log(ciphertext, 16, "ciphertext");
 
 		bzero(ciphertext_hex, sizeof(ciphertext_hex));
-		cbin_bin_to_hex(ciphertext, ciphertext_hex, 16);
+		cbin_bin_to_hex((unsigned char *)ciphertext, (unsigned char *)ciphertext_hex, 16);
 
 		headers_offset += snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-MD5: %s\r\n", ciphertext_hex);
     }
