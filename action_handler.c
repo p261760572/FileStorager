@@ -1909,7 +1909,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     char sek_pikmak_data[100];
     char tmk_pikmak_data[100];
     char chk_pikmak_data[100];
-    char sek_pikmak_hex[100];
+    //char sek_pikmak_hex[100];
     char tmk_pikmak_hex[100];
     char chk_pikmak_hex[100];
 
@@ -1917,14 +1917,14 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     bzero(sek_pikmak_data, sizeof(sek_pikmak_data));
     bzero(tmk_pikmak_data, sizeof(tmk_pikmak_data));
     bzero(chk_pikmak_data, sizeof(chk_pikmak_data));
-    bzero(sek_pikmak_hex, sizeof(sek_pikmak_hex));
+    //bzero(sek_pikmak_hex, sizeof(sek_pikmak_hex));
     bzero(tmk_pikmak_hex, sizeof(tmk_pikmak_hex));
     bzero(chk_pikmak_hex, sizeof(chk_pikmak_hex));
 
     //GET_TMK(return_code, sek_indx, tek_indx, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
     GET_WORK_KEY(return_code, (char *)sek_indx, (char *)sign_sek_indx, (char *)tmk_key1, 2, 2, sek_pikmak_data, tmk_pikmak_data, chk_pikmak_data);
-    cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
-    cstr_upper(sek_pikmak_hex);
+    //cbin_bin_to_hex((unsigned char *)sek_pikmak_data, (unsigned char *)sek_pikmak_hex, 16);
+    //cstr_upper(sek_pikmak_hex);
 
     //dcs_log(0, 0, "at %s(%s:%d) %s",__FUNCTION__,__FILE__,__LINE__,sek_pikmak_hex);
 
@@ -1933,7 +1933,7 @@ int module_generate_sign_key(fun_config_t *config, process_ctx_t *ctx, json_obje
     bzero(&temp_config, sizeof(temp_config));
     cstr_copy(temp_config.param_list, sql_id, sizeof(temp_config.param_list));
 
-    json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_hex));
+    json_object_object_add(request, sign_key, json_object_new_string(sek_pikmak_data));
 
     if(module_update(&temp_config, ctx, request, response, err_msg, err_size) < 0) {
         ret = -1;
