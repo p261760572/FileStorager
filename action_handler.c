@@ -2181,8 +2181,8 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 }
             }
 
-            //百富
-            if(strcmp(manufacturer, "PAX") == 0) {
+            //百富 九思泰达
+            if(strcmp(manufacturer, "PAX") == 0 || strcmp(manufacturer, "JUSTTIDE") == 0) {
                 if(buf[0] == 0x1b) {
                     fwrite(buf, 1, n, fw);
                     //strcpy(dest_path, source_path);
