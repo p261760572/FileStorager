@@ -965,6 +965,7 @@ json_object* json_parse(const char *str, int len) {
         if(obj != NULL)
             json_object_put(obj);
         obj = NULL;
+		dcs_debug((char *)str, len, "at %s(%s:%d)\n%s", __FUNCTION__, __FILE__, __LINE__,json_tokener_error_desc(tok->err));
     }
 
     json_tokener_free(tok);
@@ -1226,8 +1227,8 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
         //con->head_len http报文头长度
         //con->msg_len 报文头Content-Length的值
         //con->data_len 收到的数据大小(<=16k)
-        //dcs_debug(0, 0, "at %s(%s:%d) head_len=%d msg_len=%d data_len=%d", __FUNCTION__, __FILE__, __LINE__,
-        //          con->head_len, con->msg_len, con->data_len);
+        dcs_debug(0, 0, "at %s(%s:%d) head_len=%d msg_len=%d data_len=%d", __FUNCTION__, __FILE__, __LINE__,
+                  con->head_len, con->msg_len, con->data_len);
 
         dcs_debug(con->buf, con->data_len, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__, con->data_len, con->buf);
 
