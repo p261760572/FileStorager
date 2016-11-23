@@ -140,6 +140,12 @@ extern int update_xgd_para(xgd_para_t *para, const char *key, int value_type, in
 extern void xgd_para_destroy(xgd_para_t *para);
 extern int xgd_para_init(xgd_para_t *para);
 extern void xgd_para_to_file(xgd_para_t *para, FILE *fp);
+extern void landi_para_destroy(landi_para_t *para);
+extern int landi_para_init(landi_para_t *para);
+extern void landi_para_to_file(landi_para_t *para, FILE *fp);
+extern int update_landi_para(landi_para_t *para, const char *key, const char *value);
+extern int parse_landi_para(char *buf, int buf_len, landi_para_t *para);
+
 
 #ifdef __cplusplus
 }

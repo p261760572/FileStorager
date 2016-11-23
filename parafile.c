@@ -7,6 +7,8 @@
 
 #include "cdefs.h"
 #include "cstr.h"
+#include "cbuf.h"
+#include "crc32.h"
 #include "parafile.h"
 
 #include "ibdcs.h"
@@ -474,7 +476,55 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
     int offset = 0, i;
     char buf[8];
 
-    fwrite(para->head.verify, 1, sizeof(para->head.verify), fp);
+    //跳过头
+    fseek(fp, 128, SEEK_SET);
+    offset += 128;
+
+	cbuf_t *content = cbuf_new(1024*4, 1024*64);
+	
+    //选项个数
+    buf[0] = para->len&0x0ff;
+    buf[1] = (para->len>>8)&0x0ff;
+    //fwrite(buf, 1, 2, fp);
+    cbuf_append(content, buf, 2);
+    offset += 2;
+
+    //选项位置偏移
+    offset += (para->len * 8);
+    for(i = 0; i < para->len; i++) {
+
+        buf[0] = offset&0x0ff;
+        buf[1] = (offset>>8)&0x0ff;
+        buf[2] = para->options[i].key.len&0x0ff;
+        buf[3] = (para->options[i].key.len>>8)&0x0ff;
+        offset += para->options[i].key.len;
+
+        buf[4] = offset&0x0ff;
+        buf[5] = (offset>>8)&0x0ff;
+        buf[6] = para->options[i].value.len&0x0ff;
+        buf[7] = (para->options[i].value.len>>8)&0x0ff;
+        offset += para->options[i].value.len;
+
+        //fwrite(buf, 1, sizeof(buf), fp);
+		cbuf_append(content, buf, sizeof(buf));
+    }
+
+    //选项内容
+    for(i = 0; i < para->len; i++) {
+        //fwrite(para->options[i].key.p, 1, para->options[i].key.len, fp);
+        cbuf_append(content, para->options[i].key.p, para->options[i].key.len);
+        //fwrite(para->options[i].value.p, 1, para->options[i].value.len, fp);
+        cbuf_append(content, para->options[i].value.p, para->options[i].value.len);
+    }
+
+	fwrite(cbuf_str(content), 1, cbuf_len(content), fp);
+	crc32(para->head.checksum, cbuf_str(content), cbuf_len(content));
+
+	cbuf_free(content);
+
+	//跳到文件开始位置
+	fseek(fp, 0, SEEK_SET);
+	fwrite(para->head.verify, 1, sizeof(para->head.verify), fp);
     fwrite(para->head.name, 1, sizeof(para->head.name), fp);
     fwrite(para->head.type, 1, sizeof(para->head.type), fp);
     fwrite(para->head.version, 1, sizeof(para->head.version), fp);
@@ -498,47 +548,9 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
 
     fwrite(&para->head.structver, 1, sizeof(para->head.structver), fp);
     fwrite(&para->head.endflag, 1, sizeof(para->head.endflag), fp);
-
-    //跳过头
-    fseek(fp, 128, SEEK_SET);
-    offset += 128;
-
-    //选项个数
-    buf[0] = para->len&0x0ff;
-    buf[1] = (para->len>>8)&0x0ff;
-    fwrite(buf, 1, 2, fp);
-    offset += 2;
-
-    //选项位置偏移
-    offset += (para->len * 8);
-    for(i = 0; i < para->len; i++) {
-
-        buf[0] = offset&0x0ff;
-        buf[1] = (offset>>8)&0x0ff;
-        buf[2] = para->options[i].key.len&0x0ff;
-        buf[3] = (para->options[i].key.len>>8)&0x0ff;
-        offset += para->options[i].key.len;
-
-        buf[4] = offset&0x0ff;
-        buf[5] = (offset>>8)&0x0ff;
-        buf[6] = para->options[i].value.len&0x0ff;
-        buf[7] = (para->options[i].value.len>>8)&0x0ff;
-        offset += para->options[i].value.len;
-
-        fwrite(buf, 1, sizeof(buf), fp);
-    }
-
-    //选项内容
-    for(i = 0; i < para->len; i++) {
-        fwrite(para->options[i].key.p, 1, para->options[i].key.len, fp);
-        fwrite(para->options[i].value.p, 1, para->options[i].value.len, fp);
-    }
 }
 
-
-
 #if 0
-
 void print_xgd_para(xgd_para_t *para) {
     int i;
     //选项内容
@@ -567,12 +579,51 @@ void print_pax_para(pax_para_t *pax) {
     }
 }
 
+void print_landi_para(landi_para_t *landi) {
+    int i;
+    for(i = 0; i < landi->len; i++) {
+        //fprintf(stderr, "[%d]=[%d][%d]\n", i, landi.landi[i].k.len, landi.landi[i].v.len);
+        fprintf(stderr, "[%d]=[%.*s][%.*s]\n", i, landi->options[i].key.len, landi->options[i].key.p, landi->options[i].value.len, landi->options[i].value.p);
+    }
+}
+
+
+
 
 int main(int argc, char *argv[]) {
 
     char buf[1024*32];
     size_t n;
     FILE *fp;
+
+	fp = fopen("landi", "r");
+
+    //fprintf(stderr, "%p", fp);
+
+    n = fread(buf, 1, sizeof(buf), fp);
+
+
+    landi_para_t landi;
+    landi_para_init(&landi);
+    parse_landi_para(buf, n, &landi);
+
+    print_landi_para(&landi);
+
+/*
+    update_landi_para(&landi, "01000005", "TTTTTTTT");
+    update_landi_para(&landi, "01000001", "MMMMMMMMMMMMMMM");
+*/
+    print_landi_para(&landi);
+
+    {
+        FILE *fw = fopen("landi2", "wb");
+        landi_para_to_file(&landi, fw);
+        fclose(fw);
+    }
+
+    landi_para_destroy(&landi);
+
+    fclose(fp);
 
     fp = fopen("newland", "r");
 
@@ -640,4 +691,3 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 #endif
-

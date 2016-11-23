@@ -2309,6 +2309,40 @@ int module_generate_para_file(fun_config_t *config, process_ctx_t *ctx, json_obj
                 }
             }
 
+			//ÁªµÏ
+            if(strcmp(manufacturer, "LANDI") == 0) {
+                landi_para_t landi;
+                landi_para_init(&landi);
+                parse_landi_para(buf, n, &landi);
+
+
+				{
+                    int i;
+                    int len = json_object_array_length(para);
+                    for(i = 0; i < len; i++) {
+                        json_object *row = json_object_array_get_idx(para, i);
+                        const char *para_name = json_util_object_get_string(row, "para_name");
+                        const char *para_value = json_util_object_get_string(row, "para_value");
+
+                        if(strcmp(para_value, "${MCHNT_NM}") == 0) {
+                            update_landi_para(&landi, para_name, mchnt_nm);
+                        } else if(strcmp(para_value, "${PSAM}") == 0) {
+                            update_landi_para(&landi, para_name, psam_no);
+                        } else if(strcmp(para_value, "${MCHNT_CD}") == 0) {
+                            update_landi_para(&landi, para_name, mchnt_cd);
+                        } else if(strcmp(para_value, "${TERM_ID}") == 0) {
+                            update_landi_para(&landi, para_name, term_id);
+                        } else {
+                            update_landi_para(&landi, para_name, para_value == NULL ? "" : para_value);
+                        }
+                    }
+                }
+
+                landi_para_to_file(&landi, fw);
+
+                landi_para_destroy(&landi);
+            }
+
             snprintf(file_url, sizeof(file_url), "%s?filename=%s", dest_path+strlen(document_root), file_name);
 
             json_object_object_add(request, new_file_path, json_object_new_string(file_url));

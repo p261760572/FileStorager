@@ -3,7 +3,7 @@ CFLAGS = -g -Wall -pthread -I$(ORACLE_HOME)/rdbms/public -Iinclude -Iinclude/cut
 LDFLAGS= -L$(ORACLE_HOME)/lib -Llib -Wl,-rpath,lib
 LIBS = -lframe -lini -lsql -loci -lexp -ljson-c -lclntsh -lcutil -luuid -lcaptcha -lxl -lfold -lm
 
-ALL_SRCS = app_proc.c action_handler.c custom_handler.c gen_sql.c data_acl.c md5.c json_ext.c http_util.c secuLib_wst.c parafile.c 
+ALL_SRCS = app_proc.c action_handler.c custom_handler.c gen_sql.c data_acl.c md5.c json_ext.c http_util.c secuLib_wst.c parafile.c crc32.c
 
 ALL_CFILES = $(ALL_SRCS:.pc=.c)
 ALL_OBJS = $(ALL_CFILES:.c=.o)
