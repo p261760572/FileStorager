@@ -480,8 +480,8 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
     fseek(fp, 128, SEEK_SET);
     offset += 128;
 
-	cbuf_t *content = cbuf_new(1024*4, 1024*64);
-	
+    cbuf_t *content = cbuf_new(1024*4, 1024*64);
+
     //选项个数
     buf[0] = para->len&0x0ff;
     buf[1] = (para->len>>8)&0x0ff;
@@ -506,7 +506,7 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
         offset += para->options[i].value.len;
 
         //fwrite(buf, 1, sizeof(buf), fp);
-		cbuf_append(content, buf, sizeof(buf));
+        cbuf_append(content, buf, sizeof(buf));
     }
 
     //选项内容
@@ -517,14 +517,14 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
         cbuf_append(content, para->options[i].value.p, para->options[i].value.len);
     }
 
-	fwrite(cbuf_str(content), 1, cbuf_len(content), fp);
-	crc32(para->head.checksum, cbuf_str(content), cbuf_len(content));
+    fwrite(cbuf_str(content), 1, cbuf_len(content), fp);
+    crc32(para->head.checksum, cbuf_str(content), cbuf_len(content));
 
-	cbuf_free(content);
+    cbuf_free(content);
 
-	//跳到文件开始位置
-	fseek(fp, 0, SEEK_SET);
-	fwrite(para->head.verify, 1, sizeof(para->head.verify), fp);
+    //跳到文件开始位置
+    fseek(fp, 0, SEEK_SET);
+    fwrite(para->head.verify, 1, sizeof(para->head.verify), fp);
     fwrite(para->head.name, 1, sizeof(para->head.name), fp);
     fwrite(para->head.type, 1, sizeof(para->head.type), fp);
     fwrite(para->head.version, 1, sizeof(para->head.version), fp);
@@ -548,6 +548,70 @@ void landi_para_to_file(landi_para_t *para, FILE *fp) {
 
     fwrite(&para->head.structver, 1, sizeof(para->head.structver), fp);
     fwrite(&para->head.endflag, 1, sizeof(para->head.endflag), fp);
+}
+
+
+static cbuf_t *repl_str(const char *str, size_t len, const char *from, const char *to) {
+	const char *pstr2, *pstr = str;
+	size_t tolen = strlen(to), fromlen = strlen(from);
+
+	cbuf_t *buf = cbuf_new(1024, 1024*4);
+
+	while ((pstr2 = strstr(pstr, from)) != NULL) {
+		cbuf_append(buf, pstr, pstr2-pstr);
+		cbuf_append(buf, to, tolen);
+		pstr = pstr2 + fromlen;
+	}
+	cbuf_append(buf, pstr, len - (pstr-str));
+	
+	return buf;
+}
+
+
+int centerm_para_init(centerm_para_t *para) {
+    bzero(para, sizeof(*para));
+    return 0;
+}
+
+void centerm_para_destroy(centerm_para_t *para) {
+    int i;
+    for(i = 0; i < para->len; i++) {
+        cbuf_free(para->options[i]);
+    }
+	cbuf_free(para->content);
+}
+
+int parse_centerm_para(char *buf, int buf_len, const char *model, centerm_para_t *para) {
+    para->content = repl_str(buf, buf_len, "${MODEL}", model);
+    return 0;
+}
+
+int update_centerm_para(centerm_para_t *para, const char *key, const char *value) {
+    int i;
+    if(para->len >= MAX_CENTERM_OPTIONS_SIZE) {
+        return -1;
+    }
+    i = para->len;
+
+    para->options[i] = repl_str(key, strlen(key), "${0}", value);
+
+    para->len++;
+
+    return 0;
+}
+
+void centerm_para_to_file(centerm_para_t *para, FILE *fp) {
+    int i;
+	cbuf_t content;
+	cbuf_init(&content, 1024, 1024*1024);
+	for(i = 0; i < para->len; i++) {
+		cbuf_append(&content, cbuf_str(para->options[i]), cbuf_len(para->options[i]));
+	}
+	
+	cbuf_t *buf = repl_str(cbuf_str(para->content), cbuf_len(para->content), "${CONTENT}", cbuf_str(&content));
+	fwrite(cbuf_str(buf), 1, cbuf_len(buf), fp);
+	cbuf_free(buf);
+	cbuf_destroy(&content);
 }
 
 #if 0
@@ -596,7 +660,35 @@ int main(int argc, char *argv[]) {
     size_t n;
     FILE *fp;
 
-	fp = fopen("landi", "r");
+	fp = fopen("centerm.xml", "r");
+
+    fprintf(stderr, "%p", fp);
+
+    n = fread(buf, 1, sizeof(buf), fp);
+
+    centerm_para_t centerm;
+	
+    centerm_para_init(&centerm);
+    parse_centerm_para(buf, n, "XXX", &centerm);
+
+   
+    update_centerm_para(&centerm, "<Field ID=\"IP\" Name=\"IP\" Type=\"A15\" MinLength=\"7\" MaxLength=\"15\" EditAllowed=\"YES\" Explain=\"\">${0}</Field>", "127.0.0.1");
+	update_centerm_para(&centerm, "<Field ID=\"UPDATE\" Name=\"AUTOAUPDATE\" Type=\"是/否\" MinLength=\"1\" MaxLength=\"1\" EditAllowed=\"YES\" Explain=\"\">0</Field>", "0");
+ 
+
+    {
+        FILE *fw = fopen("centerm2.xml", "wb");
+        centerm_para_to_file(&centerm, fw);
+        fclose(fw);
+    }
+
+    centerm_para_destroy(&centerm);
+
+    fclose(fp);
+
+
+
+    fp = fopen("landi", "r");
 
     //fprintf(stderr, "%p", fp);
 
@@ -609,10 +701,10 @@ int main(int argc, char *argv[]) {
 
     print_landi_para(&landi);
 
-/*
-    update_landi_para(&landi, "01000005", "TTTTTTTT");
-    update_landi_para(&landi, "01000001", "MMMMMMMMMMMMMMM");
-*/
+    /*
+        update_landi_para(&landi, "01000005", "TTTTTTTT");
+        update_landi_para(&landi, "01000001", "MMMMMMMMMMMMMMM");
+    */
     print_landi_para(&landi);
 
     {
@@ -688,6 +780,10 @@ int main(int argc, char *argv[]) {
 
     fclose(fp);
 
+
     return 0;
 }
+
 #endif
+
+

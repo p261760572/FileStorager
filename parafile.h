@@ -25,6 +25,7 @@ extern "C" {
 #define MAX_PAX_OPTIONS_SIZE 256
 #define MAX_XGD_OPTIONS_SIZE 256
 #define MAX_LANDI_OPTIONS_SIZE 256
+#define MAX_CENTERM_OPTIONS_SIZE 256
 
 
 struct para_str_s {
@@ -123,6 +124,14 @@ struct landi_para_s {
 
 typedef struct landi_para_s landi_para_t;
 
+struct centerm_para_s {
+	cbuf_t *options[MAX_CENTERM_OPTIONS_SIZE];
+    int len;
+    cbuf_t *content;
+};
+
+typedef struct centerm_para_s centerm_para_t;
+
 
 
 extern void newland_para_destroy(newland_para_t *para);
@@ -145,6 +154,11 @@ extern int landi_para_init(landi_para_t *para);
 extern void landi_para_to_file(landi_para_t *para, FILE *fp);
 extern int update_landi_para(landi_para_t *para, const char *key, const char *value);
 extern int parse_landi_para(char *buf, int buf_len, landi_para_t *para);
+extern void centerm_para_destroy(centerm_para_t *para);
+extern int centerm_para_init(centerm_para_t *para);
+extern void centerm_para_to_file(centerm_para_t *para, FILE *fp);
+extern int parse_centerm_para(char *buf, int buf_len, const char *model, centerm_para_t *para);
+extern int update_centerm_para(centerm_para_t *para, const char *key, const char *value);
 
 
 #ifdef __cplusplus
