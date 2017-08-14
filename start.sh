@@ -1,9 +1,9 @@
 #/bin/sh
-export DOCUMENT_ROOT=/home/xjb
-export DB=ORCL
-export DB_USER=tms
-export DB_PWD=tms
-export ICS_SIGN=2
+export DOCUMENT_ROOT=/home/panz
+export DB=PDBORCL
+export DB_USER=wjxt
+export DB_PWD=wjxt
+export ICS_SIGN=4
 stop.sh
-tms&
+FileStorager&
 

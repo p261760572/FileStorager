@@ -67,6 +67,17 @@ static void signal_handler(int signum) {
     }
 }
 
+void http_query_string_to_json(http_pairs_t query, json_object *obj) {
+		size_t i;
+		char name[128], value[512];
+		if(!obj) return;
+    for(i = 0; i < ARRAY_SIZE(query.keys); i++) {
+    		snprintf(name, query.keys[i].len+1, "%s", query.keys[i].p);
+    		snprintf(value, query.values[i].len+1, "%s", query.values[i].p);
+        json_object_object_add(obj, name, json_object_new_string(value[0] == 0?"":value));
+    }
+}
+
 #if 0
 size_t code_convert(const char *from_charset, const char *to_charset, char *inbuf, size_t inlen,
                     char *outbuf, size_t outlen) {
@@ -683,123 +694,60 @@ void send_file2(int fd, int *flag, const char *path, long offset, long file_size
 }
 
 int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {
-    char filepath[MAX_PATH_SIZE];
+    
     struct stat st;
-
-    uri_to_path(hm, filepath, sizeof(filepath));
-    dcs_debug(0, 0, "at %s(%s:%d) [%s]", __FUNCTION__, __FILE__, __LINE__,filepath);
-
+    http_pairs_t query;
+    char filepath[512];
+    
+    if(!cstr_empty(hm->query_string)) {
+        net_parse_http_query_string(hm->query_string, hm->query_string+strlen(hm->query_string), &query);
+    }
+    json_object *request = json_object_new_object();
+    json_object *response = json_object_new_object();
+    http_query_string_to_json(query, request);
+    if(json_util_object_get_string(request, "file_name") == NULL||
+    		json_util_object_get_string(request, "login_name") == NULL||
+    		json_util_object_get_string(request, "login_pwd") == NULL||
+    		json_util_object_get_string(request, "random") == NULL||
+    		json_util_object_get_string(request, "mac") == NULL)
+				return send_http_error(outbuf, outsize, 404, "Not Found");
+		
+		/*
+		if(ctx->session == NULL) {
+				ctx->session = create_session(ctx->shm);
+				if(ctx->session == NULL) {
+            return send_http_error(outbuf, outsize, 500, "create session fail");
+        } else {
+            bzero(ctx->session->remark, sizeof(ctx->session->remark));
+            ctx->session->login_flag = '1';
+            ctx->session->last_time = time(NULL);
+            ctx->session->idle_time= 60;
+            gen_uuid((unsigned char *)ctx->session->key);
+            snprintf(ctx->headers, ctx->headers_size, "Set-Cookie: suid=%s; path=/; HttpOnly\r\n"
+                     "Set-Cookie: si=%d; path=/; HttpOnly\r\n",
+                     ctx->session->key, ctx->session->ndx);
+           	memcpy(ctx->session->remark, json_util_object_get_string(request, "login_name"), sizeof(ctx->session->remark));
+        }
+		} */
+		action_handler(ctx, request, response);
+		if(json_util_object_get_int(response, "errcode") != 0) {
+				return send_http_error(outbuf, outsize, 501, "%s", json_util_object_get_string(response, "errmsg"));	
+		}
+		
+		sprintf(filepath, "%s/download/%s", document_root, json_util_object_get_string(request, "file_path"));
     if(stat(filepath, &st)) {
         dcs_log(0, 0, "at %s(%s:%d) 404 Not Found,%s,%s", __FUNCTION__, __FILE__, __LINE__,strerror(errno), filepath);
         return send_http_error(outbuf, outsize, 404, "Not Found");
     }
 
-	char custom_headers[200];
-	int headers_offset = 0;
-	bzero(custom_headers, sizeof(custom_headers));
+		char custom_headers[200];
+		int headers_offset = 0;
+		bzero(custom_headers, sizeof(custom_headers));
 	
-    //计算文件MD5
-    {
-        session_attr_t *attr = (session_attr_t *)ctx->session->remark;
-
-        //取签名key
-        int n = 0;
-
-        char err_msg[MAX_ERR_MSG_SIZE];
-        size_t err_size = sizeof(err_msg);
-
-        char sign_sek_indx[5+1];
-        char sign_key[256+1];
-
-        bzero(err_msg, sizeof(err_msg));
-
-        memset(sign_sek_indx, ' ', sizeof(sign_sek_indx));
-        sign_sek_indx[sizeof(sign_sek_indx)-1] = '\0';
-
-        memset(sign_key, ' ', sizeof(sign_key));
-        sign_key[sizeof(sign_key)-1] = '\0';
-
-        carray_t bind;
-        carray_init(&bind, NULL);
-        carray_append(&bind, attr->attr1);
-        carray_append(&bind, attr->attr2);
-        carray_append(&bind, attr->attr3);
-        carray_append(&bind, sign_sek_indx);
-        carray_append(&bind, sign_key);
-
-        if(sql_execute(ctx->con, "begin get_sign_key(:sn,:manufacturer,:model,:sign_sek_indx,:sign_key); end;", &bind, NULL, NULL, err_msg, err_size) < 0) {
-            dcs_debug(0, 0, "at %s(%s:%d) %s", __FUNCTION__, __FILE__, __LINE__,err_msg);
-            oci_rollback(ctx->con);
-            db_errmsg_trans(err_msg, err_size);
-            n = send_http_error(outbuf, outsize, 500, err_msg);
-        }
-
-        carray_destory(&bind);
-
-        if(n > 0) {
-            return n;
-        }
-
-        cstr_rtrim(sign_sek_indx);
-        cstr_rtrim(sign_key);
-
-        char buf[MAX_BUFFER_SIZE];
-        size_t nread;
-        FILE *fp = fopen(filepath, "r");
-
-        cmd5_ctx_t md5;
-        cmd5_init(&md5);
-        while((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
-            cmd5_update(&md5, (unsigned char *)buf, nread);
-        }
-        cmd5_digest(&md5, (unsigned char *)buf);
-
-		dcs_log(buf, 16, "md5[%s]", filepath);
-
-        char return_code[4];
-
-        char sign_key_data[16];
-        char ciphertext[16];
-        int ciphertext_len;
-		char ciphertext_hex[33];
-
-        cbin_hex_to_bin((unsigned char *)sign_key, (unsigned char *)sign_key_data, strlen(sign_key));
-
-        DES3(return_code, sign_sek_indx, sign_key_data, 16, buf, &ciphertext_len, ciphertext);
-		dcs_log(ciphertext, 16, "ciphertext");
-
-		bzero(ciphertext_hex, sizeof(ciphertext_hex));
-		cbin_bin_to_hex((unsigned char *)ciphertext, (unsigned char *)ciphertext_hex, 16);
-
-		headers_offset += snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-MD5: %s\r\n", ciphertext_hex);
-    }
-
-    if(!cstr_empty(hm->query_string)) {
-        http_pairs_t query;
-        net_parse_http_query_string(hm->query_string, hm->query_string+strlen(hm->query_string), &query);
-        net_str_t *filename = net_get_http_query_string(&query, "filename");
-
-        if(filename != NULL) {
-            snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-Disposition: attachment; filename=%.*s\r\n", (int)filename->len, filename->p);
-        }
-    }
-
     int64_t offset = 0, len = 0;
-    int n = net_send_http_file2(&st, get_header(hm, "Range"), custom_headers, outbuf, outsize, &offset, &len);
-
-
+		snprintf(custom_headers+headers_offset, sizeof(custom_headers)-headers_offset, "Content-Disposition: attachment; filename=%s\r\n", strrchr(json_util_object_get_string(request, "file_path"), '/')+1);
+		int n = net_send_http_file2(&st, NULL, custom_headers, outbuf, outsize, &offset, &len);
     dcs_debug(0, 0, "at %s(%s:%d)\n%.*s", __FUNCTION__, __FILE__, __LINE__,n,outbuf);
-
-    /*
-    int status_code = 200;
-    char *msg = "OK";
-    int n = snprintf(outbuf, outsize,
-                     "HTTP/1.1 %d %s\r\n"
-                     "Content-Type: application/octet-stream\r\n"
-                     "Content-Length: %ld\r\n"
-                     "%s"
-                     "\r\n", status_code, msg, st.st_size, custom_headers);
-    */
 
     if(len > 0) {
         send_file2(con->fd, flag, filepath, offset, offset + len);
@@ -810,17 +758,8 @@ int send_file(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsi
 
 
 
-int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, struct mg_request_info *hm, process_ctx_t *ctx) {
-
-    if(strcmp(hm->uri, "/action/user/captcha") == 0) {
-        return captcha_handler(ctx, con, flag, outbuf, outsize);
-    }
-
-    if(check_session(ctx) != 0) {
-        //error
-        return send_http_error(outbuf, outsize, 500, "非法会话");
-    }
-
+int do_get(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize, 
+						struct mg_request_info *hm, process_ctx_t *ctx) {
     return send_file(con, shm_ptr, flag, outbuf, outsize, hm, ctx);
 }
 
@@ -857,7 +796,7 @@ int request_handler(int fd, int *flag, char *outbuf, int outsize, process_ctx_t 
     char headers[200];
     bzero(headers, sizeof(headers));
 
-    json_object_object_add(response, "errcode", json_object_new_int(0)); //默认值
+    //json_object_object_add(response, "errcode", json_object_new_int(0)); //默认值
 
     ctx->headers = headers;
     ctx->headers_size = sizeof(headers);
@@ -1166,7 +1105,7 @@ int do_post(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsize
     int n = 0;
 
     if(content_type == NULL) {
-        return send_http_error(outbuf, outsize, 501, NULL);
+        //return send_http_error(outbuf, outsize, 501, NULL);
     } else if(strstr(content_type, "application/json") != NULL) {
         if(con->data_len < con->head_len + con->msg_len) {
             big_request(con, flag, ctx);
@@ -1266,18 +1205,19 @@ int app_proc(connection *con, void *shm_ptr, int *flag, char *outbuf, int outsiz
         ctx.shm = shm_ptr;
         ctx.session = NULL;
         cstr_copy(ctx.action, hm.uri, sizeof(ctx.action));
-        ctx.sign = get_header(&hm, "Content-MD5");
         ctx.body = (char *)con->buf+headers_len;
         ctx.body_len = con->data_len - headers_len;
-
-
+				if(memcmp(ctx.action, "/action/", strlen("/action/"))) {
+						return 0;	
+				}
+				/*
         //取session
         char suid[100], si[100];
         if(get_cookie(&hm, "suid", suid, sizeof(suid)) > 0
            && get_cookie(&hm, "si", si, sizeof(si)) > 0) {
             ctx.session = get_my_session((shm_data *) shm_ptr, si, suid);
             //dcs_debug(0, 0, "at %s(%s:%d) %s %s %p", __FUNCTION__, __FILE__, __LINE__, si, suid, ctx.session);
-        }
+        }*/
 
         if(strcmp(hm.request_method, "GET") == 0) {
             return do_get(con, shm_ptr, flag, outbuf, outsize, &hm, &ctx);

@@ -1,2 +1,2 @@
 #!/bin/sh
-killall -s SIGUSR1 tms
+killall -s SIGUSR1 FileStorager

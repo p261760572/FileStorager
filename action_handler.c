@@ -2819,6 +2819,7 @@ void process_handler(process_ctx_t *ctx, json_object *request, json_object *resp
 
     if(fun == NULL || config == NULL) {
         //没有功能配置
+        dcs_log(0, 0, "at %s(%s:%d)", __FUNCTION__, __FILE__, __LINE__);
         json_object_object_add(response, "errcode", json_object_new_int(8));
         json_object_object_add(response, "errmsg", json_object_new_string("没有功能配置"));
     } else {
